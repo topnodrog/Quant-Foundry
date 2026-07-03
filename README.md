@@ -1,9 +1,9 @@
 # api.quiverquant.com (crypto alpha engine — research project)
 
-**Status: Phase 1 in progress. 6 of 8 data collectors live and tested against
-real APIs; 2 need free/paid API keys the user hasn't supplied yet. No
-backtesting, paper trading, or execution code yet — see `PLAN.md` for the
-full phased roadmap.**
+**Status: Phase 1 in progress. 7 of 8 data collectors live and tested against
+real APIs; Dune needs a saved query ID and Whale Alert isn't implemented
+yet. No backtesting, paper trading, or execution code yet — see `PLAN.md`
+for the full phased roadmap.**
 
 ## Goal
 
@@ -47,18 +47,19 @@ uv run quiverquant                 # run all 8
 uv run quiverquant defillama ccxt  # run specific ones
 ```
 
-## Collector status (2026-07-02)
+## Collector status (2026-07-03)
 
 | # | Source | Module | Status |
 |---|---|---|---|
 | 1 | DefiLlama | `defillama.py` | TVL free & live; unlocks need `DEFILLAMA_API_KEY` (paid plan — PLAN.md assumed free, corrected) |
 | 2 | CCXT | `ccxt_collector.py` | Live, no key |
-| 3 | Etherscan V2 + Blockchair | `onchain.py` | Blockchair live, no key; Etherscan needs `ETHERSCAN_API_KEY` (untested) |
+| 3 | Etherscan V2 + Blockchair | `onchain.py` | Both live — Blockchair keyless, Etherscan confirmed against real key |
 | 4 | CryptoPanic | `cryptopanic.py` | Needs `CRYPTOPANIC_API_KEY` (untested, no keyless tier) |
 | 5 | Electric Capital + GitHub | `dev_activity.py` | GitHub half live, keyless; Electric Capital ecosystem mapping deferred (needs running their local export toolkit, not an API) |
 | 6 | SEC EDGAR | `sec_edgar.py` | Live, no key |
 | 7 | Whale Alert | `whale_alert.py` | Not implemented — needs a decision on Telegram Bot API vs. other free feed |
-| 8 | Nansen/Dune | `smart_money.py` | Needs `DUNE_API_KEY` + real query IDs (Nansen has no free API tier) |
+| 8a | Nansen | `smart_money.py` | Live — smart-money holdings by chain, confirmed against a real key |
+| 8b | Dune | `smart_money.py` | Key confirmed valid; needs a real saved query ID from the `junctiongenerator` Dune account (`DEFAULT_DUNE_QUERY_IDS` is empty) |
 
 ## Phase plan
 
