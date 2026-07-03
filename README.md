@@ -1,9 +1,9 @@
 # api.quiverquant.com (crypto alpha engine — research project)
 
-**Status: Phase 1 in progress. 7 of 8 data collectors live and tested against
-real APIs; Dune needs a saved query ID and Whale Alert isn't implemented
-yet. No backtesting, paper trading, or execution code yet — see `PLAN.md`
-for the full phased roadmap.**
+**Status: Phase 1 in progress. 7 of 8 data collectors live and tested
+against real APIs; Whale Alert is the only one not implemented yet. No
+backtesting, paper trading, or execution code yet — see `PLAN.md` for the
+full phased roadmap.**
 
 ## Goal
 
@@ -59,7 +59,7 @@ uv run quiverquant defillama ccxt  # run specific ones
 | 6 | SEC EDGAR | `sec_edgar.py` | Live, no key |
 | 7 | Whale Alert | `whale_alert.py` | Not implemented — needs a decision on Telegram Bot API vs. other free feed |
 | 8a | Nansen | `smart_money.py` | Live — smart-money holdings by chain, confirmed against a real key |
-| 8b | Dune | `smart_money.py` | Key confirmed valid; needs a real saved query ID from the `junctiongenerator` Dune account (`DEFAULT_DUNE_QUERY_IDS` is empty) |
+| 8b | Dune | `smart_money.py` | Live — query 7872020 (eth whale transfers >500 ETH, 3d window), created via Dune's Create Query API and wired as the default |
 
 ## Phase plan
 
