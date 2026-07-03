@@ -1,0 +1,19 @@
+# actions/register-token.yaml
+action: RegisterToken
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can register tokens"
+
+effects:
+  - type: createObject
+    objectType: "Token"
+    properties:
+      symbol: "params.symbol"
+      name: "params.name"
+      geckoId: "params.geckoId"
+      contractAddress: "params.contractAddress"
+      standard: "params.standard"
+      chainKey: "params.chainKey"

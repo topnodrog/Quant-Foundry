@@ -1,0 +1,68 @@
+# Crypto Domain Pack — Enumerations
+#
+# Controlled vocabularies shared across entities and signals. Values are
+# chosen to match what the Phase 1 collectors actually emit (see README.md
+# collector-mapping table) so ingestion needs no lossy re-coding.
+
+extend schema @namespace(name: "crypto", version: "0.1.0")
+
+enum TokenStandard {
+  NATIVE          # chain-native coin (BTC, ETH, SOL)
+  ERC20
+  SPL
+  BEP20
+  TRC20
+  OTHER
+}
+
+enum ExchangeKind {
+  CEX             # centralized (Binance, Coinbase, Kraken ...)
+  DEX             # decentralized (Uniswap, dYdX, Hyperliquid ...)
+}
+
+# How a wallet came to be labelled — drives how much to trust the label.
+enum WalletCategory {
+  SMART_MONEY     # Nansen/Dune "smart money" label
+  WHALE           # large holder, no finer label
+  EXCHANGE        # known CEX hot/cold wallet
+  FUND            # attributed to a VC / fund
+  DEPLOYER        # contract deployer
+  BRIDGE          # cross-chain bridge contract
+  UNKNOWN
+}
+
+enum FundKind {
+  VC              # venture fund (a16z, Paradigm, ...)
+  HEDGE_FUND
+  SMART_MONEY     # aggregated smart-money cohort (Nansen)
+  MARKET_MAKER
+  UNKNOWN
+}
+
+# Which collector tier produced a row — mirrors quiverquant.config SourceKeys.tier().
+enum SignalTier {
+  FREE
+  PAID
+}
+
+enum SentimentKind {
+  FEAR_GREED_INDEX   # alternative.me market-wide index (0-100)
+  PANIC_SCORE        # CryptoPanic community vote (per-asset)
+  NEWS_POST          # headline / news item
+}
+
+enum FilingKind {
+  FULLTEXT_MATCH     # SEC EDGAR full-text search hit
+  LITIGATION_RELEASE # SEC litigation RSS
+  PRESS_RELEASE      # SEC press RSS
+}
+
+# Coarse regime label — reserved for the markov-regime add-on (PLAN.md §5).
+# Not populated by any Phase 1 collector yet; present so the ontology can
+# absorb it without a breaking schema change later.
+enum MarketRegime {
+  BULL
+  BEAR
+  SIDEWAYS
+  UNKNOWN
+}

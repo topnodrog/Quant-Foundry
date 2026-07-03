@@ -1,0 +1,22 @@
+# actions/record-tvl-observation.yaml
+action: RecordTvlObservation
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record TVL observations"
+  - expr: "params.tvlUsd >= 0"
+    error: "tvlUsd must be non-negative"
+
+effects:
+  - type: createObject
+    objectType: "TvlObservation"
+    properties:
+      protocolSlug: "params.protocolSlug"
+      tvlUsd: "params.tvlUsd"
+      change1d: "params.change1d"
+      change7d: "params.change7d"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"
