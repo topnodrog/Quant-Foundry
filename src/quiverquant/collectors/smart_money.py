@@ -11,11 +11,13 @@ dune.com "junctiongenerator" account before this yields data.
 
 Nansen DOES have a free tier (2,000 one-time starter credits + 10/day
 refresh, per research/quiverquant-data-landscape.md — corrected from an
-earlier "paid only" note in this file) — NANSEN_API_KEY in config.py. Exact
-endpoint paths for Smart Money/Wallet Profiler weren't pinned down during
-research (docs.nansen.ai lists categories, not a full path reference), so
-_fetch_nansen's URL is a best guess and untested; confirm against the docs
-once a key exists.
+earlier "paid only" note in this file) — NANSEN_API_KEY in config.py.
+Confirmed live 2026-07-03 against docs.nansen.ai/getting-started/authentication:
+POST (not GET) to api.nansen.ai/api/v1/smart-money/holdings, lowercase
+`apikey` header (case-sensitive in their middleware — `apiKey` 401s), and
+the key itself includes an `nsn_` prefix as part of the literal value (a
+prefix-stripped copy of the key 401s too — this cost real debugging time,
+don't re-strip it).
 """
 
 from __future__ import annotations
@@ -29,7 +31,8 @@ from quiverquant.collectors.base import Collector
 from quiverquant.config import get_source
 
 DUNE_QUERY_RESULTS = "https://api.dune.com/api/v1/query/{query_id}/results"
-NANSEN_SMART_MONEY = "https://api.nansen.ai/api/v1/smart-money/inflows"
+NANSEN_SMART_MONEY_HOLDINGS = "https://api.nansen.ai/api/v1/smart-money/holdings"
+DEFAULT_NANSEN_CHAINS = ["ethereum"]
 
 # TODO: populate with real saved Dune query IDs (e.g. smart-money wallet
 # labels, whale accumulation dashboards) once DUNE_API_KEY is available.
@@ -39,8 +42,13 @@ DEFAULT_DUNE_QUERY_IDS: list[int] = []
 class SmartMoneyCollector(Collector):
     name = "dune"
 
-    def __init__(self, query_ids: list[int] | None = None):
+    def __init__(
+        self,
+        query_ids: list[int] | None = None,
+        nansen_chains: list[str] | None = None,
+    ):
         self.query_ids = query_ids if query_ids is not None else DEFAULT_DUNE_QUERY_IDS
+        self.nansen_chains = nansen_chains or DEFAULT_NANSEN_CHAINS
 
     def fetch(self, tier: str) -> Iterable[dict[str, Any]]:
         yield from self._fetch_dune()
@@ -74,17 +82,18 @@ class SmartMoneyCollector(Collector):
         if not api_key:
             return
         now = datetime.now(timezone.utc)
-        # TODO(untested, no key available): confirm URL/params/response shape
-        # against https://docs.nansen.ai/ once NANSEN_API_KEY is set.
-        resp = requests.get(
-            NANSEN_SMART_MONEY, headers={"apiKey": api_key}, timeout=30
+        resp = requests.post(
+            NANSEN_SMART_MONEY_HOLDINGS,
+            headers={"Content-Type": "application/json", "apikey": api_key},
+            json={"chains": self.nansen_chains},
+            timeout=30,
         )
         if resp.status_code != 200:
             return
         for row in resp.json().get("data", []):
             yield {
-                "signal_type": "smart_money_inflow",
-                "entity": row.get("token_symbol") or row.get("address"),
+                "signal_type": "smart_money_holding",
+                "entity": row.get("token_symbol") or row.get("token_address"),
                 "ts": now,
                 "payload": row,
                 "source": "nansen",
