@@ -1,9 +1,10 @@
 # api.quiverquant.com (crypto alpha engine — research project)
 
-**Status: Phase 1 in progress. 7 of 8 data collectors live and tested
-against real APIs; Whale Alert is the only one not implemented yet. No
-backtesting, paper trading, or execution code yet — see `PLAN.md` for the
-full phased roadmap.**
+**Status: Phase 1 data-collection layer complete. All 8 PLAN.md sources have
+a live implementation tested against real APIs. Only CryptoPanic (sentiment)
+still needs a free-signup key from the user to go live. No backtesting,
+paper trading, or execution code yet — see `PLAN.md` for the full phased
+roadmap.**
 
 ## Goal
 
@@ -57,14 +58,14 @@ uv run quiverquant defillama ccxt  # run specific ones
 | 4 | CryptoPanic | `cryptopanic.py` | Needs `CRYPTOPANIC_API_KEY` (untested, no keyless tier) |
 | 5 | Electric Capital + GitHub | `dev_activity.py` | GitHub half live, keyless; Electric Capital ecosystem mapping deferred (needs running their local export toolkit, not an API) |
 | 6 | SEC EDGAR | `sec_edgar.py` | Live, no key |
-| 7 | Whale Alert | `whale_alert.py` | Not implemented — needs a decision on Telegram Bot API vs. other free feed |
+| 7 | Whale Alert | `whale_alert.py` | Live — scrapes Telegram's public `t.me/s/whale_alert_io` preview page (Bot API can't read a channel we don't administer), deduped against stored post IDs |
 | 8a | Nansen | `smart_money.py` | Live — smart-money holdings by chain, confirmed against a real key |
 | 8b | Dune | `smart_money.py` | Live — query 7872020 (eth whale transfers >500 ETH, 3d window), created via Dune's Create Query API and wired as the default |
 
 ## Phase plan
 
 - **Phase 0 (done):** gather components, research each, produce `PLAN.md`
-- **Phase 1 (in progress):** data collectors above
+- **Phase 1 (done):** data collectors above
 - **Phase 2:** Open Foundry ontology, migrate collectors to write into it
 - **Phase 3:** nautilus_trader integration, backtest first strategy
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
