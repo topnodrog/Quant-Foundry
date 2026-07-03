@@ -1,10 +1,12 @@
 # api.quiverquant.com (crypto alpha engine — research project)
 
-**Status: Phase 1 data-collection layer complete. All 8 PLAN.md sources have
-a live implementation tested against real APIs. Only CryptoPanic (sentiment)
-still needs a free-signup key from the user to go live. No backtesting,
-paper trading, or execution code yet — see `PLAN.md` for the full phased
-roadmap.**
+**Status: Phase 1 complete (8 live collectors). Phase 2 (UNIFY layer) in
+progress — the Open Foundry crypto Domain Pack and the raw_signals → ontology
+migration bridge are built and validated offline (`--dry-run` maps all 230
+stored rows into 332 governed-action calls; 7/7 mapping tests pass). Remaining
+Phase 2 step: stand up the Open Foundry stack under Docker and run live
+ingestion. No backtesting, paper trading, or execution code yet — see `PLAN.md`
+for the full phased roadmap.**
 
 ## Goal
 
@@ -37,6 +39,10 @@ edge, not a guarantee.
   - `config.py` — per-source free/paid tier resolution from env vars
   - `storage.py` — DuckDB-backed append-only `raw_signals` table
   - `collectors/` — one module per PLAN.md §2 source
+  - `ontology/` — Phase 2 bridge: maps `raw_signals` rows into the Open Foundry
+    crypto ontology (`mapping.py` pure/tested, `client.py`, `migrate.py`)
+- `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
+- `deploy/` — how to stand up Open Foundry with the crypto pack mounted
 - `.env.example` — every API key a collector can use, and which sources need none
 - `data/` — local DuckDB file, gitignored
 
@@ -44,8 +50,9 @@ edge, not a guarantee.
 
 ```
 uv sync
-uv run quiverquant                 # run all 8
-uv run quiverquant defillama ccxt  # run specific ones
+uv run quiverquant                       # run all 8 collectors
+uv run quiverquant defillama ccxt        # run specific ones
+uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology ingestion
 ```
 
 ## Collector status (2026-07-03)
@@ -66,7 +73,10 @@ uv run quiverquant defillama ccxt  # run specific ones
 
 - **Phase 0 (done):** gather components, research each, produce `PLAN.md`
 - **Phase 1 (done):** data collectors above
-- **Phase 2:** Open Foundry ontology, migrate collectors to write into it
+- **Phase 2 (in progress):** Open Foundry crypto Domain Pack (`ontology/crypto-pack/`)
+  and the raw_signals → ontology migration bridge (`src/quiverquant/ontology/`)
+  are built and dry-run-validated; next is standing up the stack (`deploy/`)
+  under Docker for live ingestion, then Firecrawl-sourced VC/unlock data
 - **Phase 3:** nautilus_trader integration, backtest first strategy
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

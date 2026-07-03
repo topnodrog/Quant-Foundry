@@ -53,15 +53,14 @@ not generic CRUD. The migration bridge (`src/quiverquant/ontology/`, next
 increment) dedupes an entity on its natural key, then calls the `Register*`
 action if new, and appends signals via `Record*` actions.
 
-| Action | Status |
-|--------|--------|
-| `RegisterChain/Token/Protocol/Wallet/Exchange/Fund` | authored |
-| `RecordWhaleTransfer` (flagship, emits `crypto.whale.transfer` event) | authored |
-| `RecordUnlockEvent`, `RecordTvlObservation` | authored |
-| `RecordPrice/Holding/DevActivity/RegulatoryFiling/Sentiment/ChainMetric` | **pending** — identical single-`createObject` manifests, added as each collector is wired and integration-tested against the running stack |
+All 15 actions ship: 6 `Register*` (one per entity) and 9 `Record*` (one per
+signal type). `RecordWhaleTransfer` is the flagship — besides creating the
+`WhaleTransfer` object it emits a `crypto.whale.transfer` domain event a
+strategy layer can subscribe to. The rest are single-`createObject` manifests.
 
-The remaining recorders are deliberately not shipped as unvalidated YAML; they
-follow the exact shape of `record-tvl-observation.yaml`.
+The bridge (`src/quiverquant/ontology/`) maps each `raw_signals` row to a list
+of action calls: `--dry-run` renders them offline (validated against the real
+DuckDB); a live run POSTs them once the stack is up.
 
 ## Roles
 

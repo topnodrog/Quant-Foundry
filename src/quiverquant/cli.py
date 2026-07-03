@@ -28,7 +28,14 @@ COLLECTORS = {
 
 
 def main() -> None:
-    requested = sys.argv[1:] or list(COLLECTORS.keys())
+    argv = sys.argv[1:]
+    if argv and argv[0] == "migrate-ontology":
+        # Phase 2: migrate raw_signals into the Open Foundry crypto ontology.
+        from quiverquant.ontology.migrate import main as migrate_main
+
+        raise SystemExit(migrate_main(argv[1:]))
+
+    requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
         if cls is None:

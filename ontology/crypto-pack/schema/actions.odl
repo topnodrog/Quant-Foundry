@@ -101,3 +101,72 @@ type RecordTvlObservation @actionType {
   tier: SignalTier! @param
   source: String! @param
 }
+
+type RecordPriceObservation @actionType {
+  exchangeKey: String! @param
+  pair: String! @param
+  baseSymbol: String @param
+  last: Float @param
+  bid: Float @param
+  ask: Float @param
+  baseVolume: Float @param
+  quoteVolume: Float @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordHolding @actionType {
+  fundName: String! @param
+  tokenSymbol: String @param
+  tokenAddress: String @param
+  chainKey: String @param
+  amountTokens: Float @param
+  amountUsd: Float @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordDevActivity @actionType {
+  repo: String! @param
+  stars: Int @param
+  forks: Int @param
+  openIssues: Int @param
+  pushedAt: DateTime @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordRegulatoryFiling @actionType {
+  kind: FilingKind! @param
+  title: String! @param
+  url: URI @param
+  ciks: String @param
+  publishedAt: DateTime @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordSentiment @actionType {
+  kind: SentimentKind! @param
+  tokenSymbol: String @param
+  value: Float @param
+  classification: String @param
+  text: String @param
+  url: URI @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordChainMetric @actionType {
+  chainKey: String! @param
+  metricSet: String! @param
+  data: JSON! @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}

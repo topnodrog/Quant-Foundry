@@ -53,7 +53,8 @@ enum SentimentKind {
 
 enum FilingKind {
   FULLTEXT_MATCH     # SEC EDGAR full-text search hit
-  LITIGATION_RELEASE # SEC litigation RSS
+  LITIGATION_RELEASE # SEC litigation-releases RSS
+  ADMIN_PROCEEDING   # SEC administrative-proceedings RSS
   PRESS_RELEASE      # SEC press RSS
 }
 

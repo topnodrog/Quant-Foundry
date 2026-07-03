@@ -1,0 +1,22 @@
+# actions/record-holding.yaml
+action: RecordHolding
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record holdings"
+
+effects:
+  - type: createObject
+    objectType: "Holding"
+    properties:
+      fundName: "params.fundName"
+      tokenSymbol: "params.tokenSymbol"
+      tokenAddress: "params.tokenAddress"
+      chainKey: "params.chainKey"
+      amountTokens: "params.amountTokens"
+      amountUsd: "params.amountUsd"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"

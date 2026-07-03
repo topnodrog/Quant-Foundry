@@ -1,0 +1,22 @@
+# actions/record-sentiment.yaml
+action: RecordSentiment
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record sentiment"
+
+effects:
+  - type: createObject
+    objectType: "SentimentObservation"
+    properties:
+      kind: "params.kind"
+      tokenSymbol: "params.tokenSymbol"
+      value: "params.value"
+      classification: "params.classification"
+      text: "params.text"
+      url: "params.url"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"

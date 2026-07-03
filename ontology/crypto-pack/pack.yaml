@@ -15,7 +15,7 @@ dependencies:
 provides:
   objectTypes: 15      # 6 entities + 9 signals
   linkTypes: 7
-  actionTypes: 9
+  actionTypes: 15      # 6 Register* + 9 Record*
   functions: 0
   connectors: 0
   widgets: 0
@@ -38,6 +38,12 @@ actions:
   - actions/record-whale-transfer.yaml
   - actions/record-unlock-event.yaml
   - actions/record-tvl-observation.yaml
+  - actions/record-price-observation.yaml
+  - actions/record-holding.yaml
+  - actions/record-dev-activity.yaml
+  - actions/record-regulatory-filing.yaml
+  - actions/record-sentiment.yaml
+  - actions/record-chain-metric.yaml
 
 permissions:
   - permissions/crypto-roles.fga

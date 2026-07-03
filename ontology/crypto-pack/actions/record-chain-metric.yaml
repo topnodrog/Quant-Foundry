@@ -1,0 +1,19 @@
+# actions/record-chain-metric.yaml
+action: RecordChainMetric
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record chain metrics"
+
+effects:
+  - type: createObject
+    objectType: "ChainMetric"
+    properties:
+      chainKey: "params.chainKey"
+      metricSet: "params.metricSet"
+      data: "params.data"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"
