@@ -32,6 +32,7 @@ import requests
 
 from quiverquant.collectors.base import Collector
 from quiverquant.config import get_source
+from quiverquant.storage import get_connection
 
 DUNE_QUERY_RESULTS = "https://api.dune.com/api/v1/query/{query_id}/results"
 NANSEN_SMART_MONEY_HOLDINGS = "https://api.nansen.ai/api/v1/smart-money/holdings"
@@ -64,6 +65,7 @@ class SmartMoneyCollector(Collector):
             return
         now = datetime.now(timezone.utc)
         headers = {"X-Dune-API-Key": api_key}
+        seen = _seen_dune_entities()
         for query_id in self.query_ids:
             resp = requests.get(
                 DUNE_QUERY_RESULTS.format(query_id=query_id), headers=headers, timeout=60
@@ -72,9 +74,12 @@ class SmartMoneyCollector(Collector):
                 continue
             rows = resp.json().get("result", {}).get("rows", [])
             for row in rows:
+                entity = _row_entity(row, query_id)
+                if entity in seen:
+                    continue
                 yield {
                     "signal_type": "dune_query_row",
-                    "entity": _row_entity(row, query_id),
+                    "entity": entity,
                     "ts": _row_ts(row, now),
                     "payload": row,
                     "source": "dune",
@@ -103,6 +108,19 @@ class SmartMoneyCollector(Collector):
                 "source": "nansen",
                 "tier": get_source("nansen").tier(),
             }
+
+
+def _seen_dune_entities() -> set[str]:
+    """Already-stored entities for source='dune', so repeat runs of a query
+    over discrete on-chain events (e.g. a tx hash per row) don't reinsert the
+    same rows. Only meaningful when _row_entity finds a real per-row
+    identifier (hash/address/wallet) rather than falling back to query_id."""
+    con = get_connection()
+    try:
+        rows = con.execute("SELECT DISTINCT entity FROM raw_signals WHERE source = 'dune'").fetchall()
+    finally:
+        con.close()
+    return {r[0] for r in rows}
 
 
 def _row_entity(row: dict[str, Any], query_id: int) -> str:
