@@ -1,9 +1,15 @@
 """CryptoPanic — community sentiment (Panic Score). PLAN.md §2 #4.
 
-CryptoPanic's v2 API requires an auth_token on every request, even on the
-free plan (no keyless tier) — untested here, no key available. Sign up free
-at https://cryptopanic.com/developers/api/ and set CRYPTOPANIC_API_KEY.
-fetch() returns nothing until that key exists.
+DROPPED 2026-07-03 (user decision): CryptoPanic no longer offers a free
+developer tier and their paid pricing isn't justified for a
+community-sentiment feed whose signal is available elsewhere. This module
+is kept as a dormant stub — it needs a CRYPTOPANIC_API_KEY that we're
+deliberately not providing, so fetch() always returns nothing. The
+sentiment category (§2 #4) is intended to be refilled by a free source
+(e.g. Alternative.me Fear & Greed index, no key) rather than revived here.
+
+If a key is ever set anyway, the original v2 integration below still works:
+auth_token on every request against api/v2/posts/.
 """
 
 from __future__ import annotations

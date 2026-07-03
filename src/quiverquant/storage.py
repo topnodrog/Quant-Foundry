@@ -43,18 +43,30 @@ def get_connection() -> duckdb.DuckDBPyConnection:
     return con
 
 
+def _to_utc_naive(value: datetime) -> datetime:
+    """Normalize to naive-UTC wall-clock before inserting into a TIMESTAMP
+    column. DuckDB's TIMESTAMP is tz-naive: handing it a tz-aware datetime
+    makes the driver convert to the *machine's local* time and strip the tz,
+    so on a UTC-4 box a 00:00Z reading silently lands as 20:00 the day
+    before. Collectors all produce tz-aware UTC, so we pin everything to UTC
+    wall-clock here and keep the whole table in one consistent zone."""
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def insert_signals(records: Iterable[dict[str, Any]]) -> int:
     """Insert normalized records. Each dict needs: source, signal_type, ts,
     payload, tier, and optionally entity. Returns the number of rows inserted."""
     rows = []
-    now = datetime.now(timezone.utc)
+    now = _to_utc_naive(datetime.now(timezone.utc))
     for r in records:
         rows.append(
             (
                 r["source"],
                 r["signal_type"],
                 r.get("entity"),
-                r["ts"],
+                _to_utc_naive(r["ts"]),
                 now,
                 json.dumps(r["payload"], default=str),
                 r["tier"],

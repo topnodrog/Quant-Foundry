@@ -8,6 +8,7 @@ from quiverquant.collectors.ccxt_collector import CCXTCollector
 from quiverquant.collectors.cryptopanic import CryptoPanicCollector
 from quiverquant.collectors.defillama import DefiLlamaCollector
 from quiverquant.collectors.dev_activity import DevActivityCollector
+from quiverquant.collectors.fear_greed import FearGreedCollector
 from quiverquant.collectors.onchain import OnchainCollector
 from quiverquant.collectors.sec_edgar import SecEdgarCollector
 from quiverquant.collectors.smart_money import SmartMoneyCollector
@@ -18,6 +19,7 @@ COLLECTORS = {
     "ccxt": CCXTCollector,
     "onchain": OnchainCollector,
     "cryptopanic": CryptoPanicCollector,
+    "fear_greed": FearGreedCollector,
     "github": DevActivityCollector,
     "sec_edgar": SecEdgarCollector,
     "whale_alert": WhaleAlertCollector,

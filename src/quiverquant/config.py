@@ -53,7 +53,8 @@ SOURCES: dict[str, SourceKeys] = {
     "ccxt": SourceKeys(),  # no key, public market data
     "etherscan": SourceKeys(free_key_env="ETHERSCAN_API_KEY"),
     "blockchair": SourceKeys(free_key_env="BLOCKCHAIR_API_KEY"),
-    "cryptopanic": SourceKeys(free_key_env="CRYPTOPANIC_API_KEY"),
+    "cryptopanic": SourceKeys(free_key_env="CRYPTOPANIC_API_KEY"),  # DROPPED — no free tier, see collectors/cryptopanic.py
+    "fear_greed": SourceKeys(),  # Alternative.me Fear & Greed index — no key; refills the sentiment slot
     "electric_capital": SourceKeys(),  # public git repo, no key
     "github": SourceKeys(free_key_env="GITHUB_TOKEN"),
     "sec_edgar": SourceKeys(),  # no key, public
