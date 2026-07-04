@@ -63,6 +63,8 @@ def run(source: str | None = None, limit: int | None = None,
         dry_run: bool = False, sample: int = 3) -> int:
     client = OpenFoundryClient(dry_run=dry_run)
     action_counts: Counter[str] = Counter()
+    fail_by_action: Counter[str] = Counter()
+    error_samples: dict[str, str] = {}
     skipped_types: Counter[str] = Counter()
     rows_seen = 0
     calls_made = 0
@@ -83,18 +85,23 @@ def run(source: str | None = None, limit: int | None = None,
                 calls_made += 1
             except Exception as exc:  # noqa: BLE001 - report, keep going
                 failures += 1
-                if failures <= 10:
-                    print(f"  ! {call.action} failed: {exc}")
+                fail_by_action[call.action] += 1
+                error_samples.setdefault(call.action, str(exc))
 
     mode = "DRY RUN" if dry_run else "LIVE"
     print(f"\n=== migrate-ontology [{mode}] ===")
     print(f"rows read:        {rows_seen}")
-    print(f"action calls:     {calls_made}")
+    print(f"action calls ok:  {calls_made}")
     if failures:
         print(f"failures:         {failures}")
-    print("\nby action:")
+    print("\nby action (attempted / failed):")
     for action, n in sorted(action_counts.items(), key=lambda kv: (-kv[1], kv[0])):
-        print(f"  {action:24} {n}")
+        f = fail_by_action.get(action, 0)
+        print(f"  {action:24} {n:4}  fail={f}")
+    if fail_by_action:
+        print("\nfailure samples (one per action):")
+        for action in sorted(fail_by_action):
+            print(f"  {action}: {error_samples[action][:220]}")
     if skipped_types:
         print("\nskipped signal types (no ontology mapping):")
         for st, n in skipped_types.most_common():
