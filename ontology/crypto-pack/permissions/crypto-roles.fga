@@ -1,0 +1,141 @@
+model
+  schema 1.1
+
+# Crypto Domain Pack authorization model.
+#
+# This file intentionally owns the ReBAC model for the pack's object types
+# (mergeOpenFGAOverrides replaces a type wholesale — see external-domain-
+# packs.md "Permission overrides replace entire types"). The data here is
+# public market data, so the model is deliberately flat:
+#   admin    — full control, manages reference entities
+#   analyst  — human researcher: reads everything, records signals
+#   ingestor — the migration-bridge service account: reads + records signals
+#   viewer   — read-only
+# Entities (reference data) are managed by admins; signals (append-only facts)
+# are written by ingestor/analyst/admin.
+
+type user
+
+# ── Reference entities (admin-managed) ──
+
+type chain
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+type token
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+type protocol
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+type wallet
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+type exchange
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+type fund
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_manage: admin
+
+# ── Signals (append-only, written by ingestor/analyst/admin) ──
+
+type price_observation
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type tvl_observation
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type unlock_event
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type whale_transfer
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type holding
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type dev_activity_observation
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type regulatory_filing
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type sentiment_observation
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin
+
+type chain_metric
+  relations
+    define admin: [user]
+    define analyst: [user]
+    define ingestor: [user]
+    define viewer: [user] or analyst or ingestor or admin
+    define can_write: ingestor or analyst or admin

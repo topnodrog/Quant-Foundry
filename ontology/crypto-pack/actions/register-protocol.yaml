@@ -1,0 +1,19 @@
+# actions/register-protocol.yaml
+action: RegisterProtocol
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can register protocols"
+
+effects:
+  - type: createObject
+    objectType: "Protocol"
+    properties:
+      slug: "params.slug"
+      name: "params.name"
+      category: "params.category"
+      chainKey: "params.chainKey"
+      githubRepo: "params.githubRepo"
+      geckoId: "params.geckoId"

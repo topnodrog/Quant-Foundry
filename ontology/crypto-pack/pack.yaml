@@ -1,0 +1,49 @@
+# pack.yaml — Crypto alt-data domain pack (external pack, loaded via
+# DOMAIN_PACKS_EXTRA_DIRS). Unifies the 8 Phase 1 collectors into one queryable
+# ontology per PLAN.md §4.
+name: crypto
+version: 0.1.0
+description: "Crypto alternative-data domain pack — unifies on-chain, market, sentiment, dev-activity, and regulatory signals from the Phase 1 free-data collectors into one ontology"
+namespace: crypto
+
+dependencies:
+  openfoundry.core: ">=1.0.0"
+
+# No `capabilities:` — the FHIR (/fhir/*) and FDP/CDM (/api/v1/cdm/*) facades
+# are NHS-shaped and must not be mounted for a crypto deployment.
+
+provides:
+  objectTypes: 15      # 6 entities + 9 signals
+  linkTypes: 7
+  actionTypes: 15      # 6 Register* + 9 Record*
+  functions: 0
+  connectors: 0
+  widgets: 0
+  qualityRules: 0
+
+schema:
+  - schema/enums.odl
+  - schema/entities.odl
+  - schema/signals.odl
+  - schema/links.odl
+  - schema/actions.odl
+
+actions:
+  - actions/register-chain.yaml
+  - actions/register-token.yaml
+  - actions/register-protocol.yaml
+  - actions/register-wallet.yaml
+  - actions/register-exchange.yaml
+  - actions/register-fund.yaml
+  - actions/record-whale-transfer.yaml
+  - actions/record-unlock-event.yaml
+  - actions/record-tvl-observation.yaml
+  - actions/record-price-observation.yaml
+  - actions/record-holding.yaml
+  - actions/record-dev-activity.yaml
+  - actions/record-regulatory-filing.yaml
+  - actions/record-sentiment.yaml
+  - actions/record-chain-metric.yaml
+
+permissions:
+  - permissions/crypto-roles.fga

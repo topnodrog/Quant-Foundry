@@ -1,0 +1,60 @@
+# Crypto Domain Pack — Link types (graph edges)
+#
+# The relationships from PLAN.md §4 that are worth traversing in the AGE graph
+# ("a wallet tagged as a VC moved >$1M to a CEX deposit address" needs edges,
+# not just FK columns). Reference-only FKs stay as indexed fields on the signal
+# objects; only traversal-worthy relations are promoted to link types here.
+#
+# Link types use `type ... @linkType(...)` with a body containing at least
+# `id: ID! @primary` (the `link` keyword is not valid ODL — see external-
+# domain-packs.md troubleshooting).
+
+extend schema @namespace(name: "crypto", version: "0.1.0")
+
+# ── PLAN.md §4 core relationships ──
+
+# Wallet --transferred_to--> Wallet, materialised from WhaleTransfer rows.
+# Carries running aggregates so the graph answers "who moves money to whom"
+# without rescanning every transfer.
+type WalletTransferredTo @linkType(from: "Wallet", to: "Wallet", cardinality: MANY_TO_MANY) {
+  id: ID! @primary
+  lastTransferAt: DateTime!
+  transferCount: Int!
+  totalUsd: Float
+}
+
+# Fund --holds--> Token, materialised from Holding rows.
+type FundHoldsToken @linkType(from: "Fund", to: "Token", cardinality: MANY_TO_MANY) {
+  id: ID! @primary
+  amountUsd: Float
+  observedAt: DateTime!
+}
+
+# Fund --backs--> Protocol ("who's backing what"). Sparse in Phase 1; filled by
+# Firecrawl VC-portfolio ingestion in the Phase 2 tail (PLAN.md §3).
+type FundBacksProtocol @linkType(from: "Fund", to: "Protocol", cardinality: MANY_TO_MANY) {
+  id: ID! @primary
+  round: String                # "Seed", "Series A", ...
+  announcedAt: DateTime
+  sourceUrl: URI
+}
+
+# ── Grouping / provenance edges ──
+
+type TokenOnChain @linkType(from: "Token", to: "Chain", cardinality: MANY_TO_ONE) {
+  id: ID! @primary
+}
+
+type ProtocolOnChain @linkType(from: "Protocol", to: "Chain", cardinality: MANY_TO_ONE) {
+  id: ID! @primary
+}
+
+# Exchange --lists--> Token, materialised from CCXT trading pairs.
+type ExchangeListsToken @linkType(from: "Exchange", to: "Token", cardinality: MANY_TO_MANY) {
+  id: ID! @primary
+}
+
+# A protocol's governance/utility token (Protocol.geckoId == Token.geckoId).
+type ProtocolToken @linkType(from: "Protocol", to: "Token", cardinality: ONE_TO_ONE) {
+  id: ID! @primary
+}

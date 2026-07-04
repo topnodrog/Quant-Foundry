@@ -1,0 +1,172 @@
+# Crypto Domain Pack — Action types
+#
+# Open Foundry is action-oriented: objects are created/mutated through governed
+# actions, not generic per-type CRUD. These declare the GraphQL/REST input
+# schema; behaviour (preconditions, effects, side-effects) lives in actions/*.yaml.
+#
+# Two families:
+#   Register* — create a core entity (scalar params -> createObject). The bridge
+#               dedupes on the entity's natural key before calling these.
+#   Record*   — append a signal/event row (scalar params -> createObject).
+#
+# Ships the six entity registrars plus the three highest-value recorders
+# (whale transfer, token unlock, TVL). The remaining recorders are identical
+# single-createObject manifests and are added as each collector is wired into
+# the bridge (see README.md "Ingestion status").
+
+extend schema @namespace(name: "crypto", version: "0.1.0")
+
+# ── Entity registrars ──
+
+type RegisterChain @actionType {
+  key: String! @param
+  name: String! @param
+  chainId: Int @param
+  nativeSymbol: String @param
+}
+
+type RegisterToken @actionType {
+  symbol: String! @param
+  name: String @param
+  geckoId: String @param
+  contractAddress: String @param
+  standard: TokenStandard @param
+  chainKey: String @param
+}
+
+type RegisterProtocol @actionType {
+  slug: String! @param
+  name: String! @param
+  category: String @param
+  chainKey: String @param
+  githubRepo: String @param
+  geckoId: String @param
+}
+
+type RegisterWallet @actionType {
+  address: String! @param
+  chainKey: String! @param
+  label: String @param
+  category: WalletCategory! @param
+  labelSource: String @param
+}
+
+type RegisterExchange @actionType {
+  exchangeKey: String! @param
+  name: String! @param
+  kind: ExchangeKind! @param
+}
+
+type RegisterFund @actionType {
+  name: String! @param
+  kind: FundKind! @param
+  description: String @param
+}
+
+# ── Signal recorders ──
+
+type RecordWhaleTransfer @actionType {
+  txHash: String @param
+  tokenSymbol: String! @param
+  chainKey: String @param
+  amountTokens: Float @param
+  amountUsd: Float @param
+  fromAddress: String @param
+  toAddress: String @param
+  fromLabel: String @param
+  toLabel: String @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordUnlockEvent @actionType {
+  tokenGeckoId: String! @param
+  unlockAt: DateTime! @param
+  amountTokens: Float @param
+  amountUsd: Float @param
+  pctOfCirculating: Float @param
+  category: String @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordTvlObservation @actionType {
+  protocolSlug: String! @param
+  tvlUsd: Float! @param
+  change1d: Float @param
+  change7d: Float @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordPriceObservation @actionType {
+  exchangeKey: String! @param
+  pair: String! @param
+  baseSymbol: String @param
+  last: Float @param
+  bid: Float @param
+  ask: Float @param
+  baseVolume: Float @param
+  quoteVolume: Float @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordHolding @actionType {
+  fundName: String! @param
+  tokenSymbol: String @param
+  tokenAddress: String @param
+  chainKey: String @param
+  amountTokens: Float @param
+  amountUsd: Float @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordDevActivity @actionType {
+  repo: String! @param
+  stars: Int @param
+  forks: Int @param
+  openIssues: Int @param
+  pushedAt: DateTime @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordRegulatoryFiling @actionType {
+  kind: FilingKind! @param
+  title: String! @param
+  url: URI @param
+  ciks: String @param
+  publishedAt: DateTime @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordSentiment @actionType {
+  kind: SentimentKind! @param
+  tokenSymbol: String @param
+  value: Float @param
+  classification: String @param
+  text: String @param
+  url: URI @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}
+
+type RecordChainMetric @actionType {
+  chainKey: String! @param
+  metricSet: String! @param
+  data: JSON! @param
+  observedAt: DateTime! @param
+  tier: SignalTier! @param
+  source: String! @param
+}

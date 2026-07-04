@@ -1,0 +1,24 @@
+# actions/record-price-observation.yaml
+action: RecordPriceObservation
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record price observations"
+
+effects:
+  - type: createObject
+    objectType: "PriceObservation"
+    properties:
+      exchangeKey: "params.exchangeKey"
+      pair: "params.pair"
+      baseSymbol: "params.baseSymbol"
+      last: "params.last"
+      bid: "params.bid"
+      ask: "params.ask"
+      baseVolume: "params.baseVolume"
+      quoteVolume: "params.quoteVolume"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"

@@ -1,0 +1,143 @@
+# Crypto Domain Pack — Signals (observations & events)
+#
+# These are the append-only, time-stamped facts the Phase 1 collectors emit.
+# Each type maps to exactly one collector signal_type (README.md table). They
+# all share three provenance fields:
+#   observedAt : when the underlying event/observation actually occurred
+#   tier       : FREE or PAID collector tier that produced the row
+#   source     : originating collector name ("defillama", "ccxt", ...)
+# Entity references are stored as indexed natural-key fields (chainKey,
+# tokenSymbol, protocolSlug ...) — the same FK-as-field pattern the AML pack
+# uses; graph edges that need traversal are promoted to link types (links.odl).
+
+extend schema @namespace(name: "crypto", version: "0.1.0")
+
+# CCXT ticker_snapshot — cross-exchange price/volume.
+type PriceObservation @objectType {
+  id: ID! @primary
+  exchangeKey: String! @indexed        # FK -> Exchange.exchangeKey
+  pair: String! @indexed               # "BTC/USDT"
+  baseSymbol: String @indexed          # FK -> Token.symbol
+  last: Float
+  bid: Float
+  ask: Float
+  baseVolume: Float
+  quoteVolume: Float
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# DefiLlama tvl_snapshot — protocol TVL and momentum ("fund flows").
+type TvlObservation @objectType {
+  id: ID! @primary
+  protocolSlug: String! @indexed       # FK -> Protocol.slug
+  tvlUsd: Float! @constraint(expr: "value >= 0")
+  change1d: Float                      # fractional day-over-day change
+  change7d: Float
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# DefiLlama token_unlock_schedule — the "insider supply" event (PLAN.md §4
+# lists UnlockEvent as a core entity; here it is a dated event object).
+type UnlockEvent @objectType {
+  id: ID! @primary
+  tokenGeckoId: String! @indexed       # FK -> Token.geckoId
+  unlockAt: DateTime! @indexed
+  amountTokens: Float
+  amountUsd: Float
+  pctOfCirculating: Float
+  category: String                     # "insiders", "team", "public", ...
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# Whale-Alert + Dune whale-transfer — the flagship "whale/insider movement"
+# signal. from/to are addresses that also become Wallet nodes + a
+# WalletTransferredTo edge (record-whale-transfer.yaml).
+type WhaleTransfer @objectType {
+  id: ID! @primary
+  txHash: String @unique @indexed      # null for Telegram-scraped alerts
+  tokenSymbol: String! @indexed        # FK -> Token.symbol
+  chainKey: String @indexed
+  amountTokens: Float
+  amountUsd: Float @indexed
+  fromAddress: String @indexed
+  toAddress: String @indexed
+  fromLabel: String
+  toLabel: String
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# Nansen smart_money_holding — a smart-money cohort's position in a token.
+type Holding @objectType {
+  id: ID! @primary
+  fundName: String! @indexed           # FK -> Fund.name (cohort/label)
+  tokenSymbol: String @indexed         # FK -> Token.symbol
+  tokenAddress: String @indexed
+  chainKey: String @indexed
+  amountTokens: Float
+  amountUsd: Float @indexed
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# GitHub repo_activity — dev-activity "patents" analog.
+type DevActivityObservation @objectType {
+  id: ID! @primary
+  repo: String! @indexed               # "org/repo" — joins Protocol.githubRepo
+  stars: Int
+  forks: Int
+  openIssues: Int
+  pushedAt: DateTime @indexed
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# SEC EDGAR full-text / litigation / press — regulatory "lobbying" analog.
+type RegulatoryFiling @objectType {
+  id: ID! @primary
+  kind: FilingKind!
+  title: String! @searchable(weight: 2.0)
+  url: URI @unique @indexed
+  ciks: String @indexed                # comma-joined CIK list when present
+  publishedAt: DateTime @indexed
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# alternative.me Fear & Greed + CryptoPanic — sentiment. tokenSymbol null =
+# market-wide (Fear & Greed); set = per-asset (Panic score / news).
+type SentimentObservation @objectType {
+  id: ID! @primary
+  kind: SentimentKind!
+  tokenSymbol: String @indexed         # FK -> Token.symbol; null = market-wide
+  value: Float                         # 0-100 for FEAR_GREED_INDEX
+  classification: String               # "Extreme Fear", "Greed", ...
+  text: String
+  url: URI
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}
+
+# Blockchair chain_stats + Etherscan chain_supply — chain-level context.
+# Heterogeneous per source, so the raw record is kept as JSON alongside a few
+# promoted numerics.
+type ChainMetric @objectType {
+  id: ID! @primary
+  chainKey: String! @indexed           # FK -> Chain.key
+  metricSet: String! @indexed          # "blockchair_stats" | "etherscan_supply"
+  data: JSON!
+  observedAt: DateTime! @indexed
+  tier: SignalTier!
+  source: String!
+}

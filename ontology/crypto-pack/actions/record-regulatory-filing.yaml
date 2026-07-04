@@ -1,0 +1,21 @@
+# actions/record-regulatory-filing.yaml
+action: RecordRegulatoryFiling
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record regulatory filings"
+
+effects:
+  - type: createObject
+    objectType: "RegulatoryFiling"
+    properties:
+      kind: "params.kind"
+      title: "params.title"
+      url: "params.url"
+      ciks: "params.ciks"
+      publishedAt: "params.publishedAt"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"

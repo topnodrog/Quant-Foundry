@@ -1,0 +1,21 @@
+# actions/record-dev-activity.yaml
+action: RecordDevActivity
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record dev activity"
+
+effects:
+  - type: createObject
+    objectType: "DevActivityObservation"
+    properties:
+      repo: "params.repo"
+      stars: "params.stars"
+      forks: "params.forks"
+      openIssues: "params.openIssues"
+      pushedAt: "params.pushedAt"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"

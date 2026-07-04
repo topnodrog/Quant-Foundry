@@ -1,0 +1,47 @@
+# actions/record-whale-transfer.yaml
+#
+# Flagship "whale/insider movement" signal. Mirrors the AML FlagTransaction
+# pattern: createObject + a domain event other services can subscribe to (e.g.
+# a strategy layer that reacts to a VC-labelled wallet moving to a CEX deposit).
+# Wallet nodes and the WalletTransferredTo edge are materialised by the bridge
+# via RegisterWallet + a link call, not inside this action.
+action: RecordWhaleTransfer
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record whale transfers"
+  - expr: "params.amountUsd == null || params.amountUsd >= 0"
+    error: "amountUsd must be non-negative"
+
+effects:
+  - type: createObject
+    objectType: "WhaleTransfer"
+    properties:
+      txHash: "params.txHash"
+      tokenSymbol: "params.tokenSymbol"
+      chainKey: "params.chainKey"
+      amountTokens: "params.amountTokens"
+      amountUsd: "params.amountUsd"
+      fromAddress: "params.fromAddress"
+      toAddress: "params.toAddress"
+      fromLabel: "params.fromLabel"
+      toLabel: "params.toLabel"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"
+
+sideEffects:
+  - name: emitWhaleTransferEvent
+    type: event
+    config:
+      type: "crypto.whale.transfer"
+      data:
+        tokenSymbol: "params.tokenSymbol"
+        amountUsd: "params.amountUsd"
+        fromLabel: "params.fromLabel"
+        toLabel: "params.toLabel"
+
+rollback:
+  onSideEffectFailure: LOG_AND_CONTINUE

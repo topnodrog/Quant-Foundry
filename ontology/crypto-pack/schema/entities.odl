@@ -1,0 +1,74 @@
+# Crypto Domain Pack — Core entities (the "nouns")
+#
+# The six slowly-changing entities from PLAN.md §4 (Wallet, Protocol, Token,
+# VC/Fund, Exchange, UnlockEvent) plus Chain, which the on-chain collector
+# needs as a grouping key. UnlockEvent is modelled as a signal (schema/
+# signals.odl) rather than an entity because each row is a dated event, not a
+# durable object.
+#
+# Entities carry natural keys (@unique) so the migration bridge can dedupe
+# on symbol / slug / address before issuing a Register* action.
+
+extend schema @namespace(name: "crypto", version: "0.1.0")
+
+# A blockchain network. Grouping key for tokens, protocols, wallets, and the
+# on-chain collector's per-chain stats.
+type Chain @objectType {
+  id: ID! @primary
+  key: String! @unique @indexed @immutable   # canonical slug: "ethereum", "bitcoin", "solana"
+  name: String! @searchable
+  chainId: Int @indexed                       # EVM chain id where applicable (1 = mainnet)
+  nativeSymbol: String
+}
+
+# A crypto asset. Symbol is not globally unique (many "BTC"), so geckoId /
+# contractAddress are the reliable natural keys when present.
+type Token @objectType {
+  id: ID! @primary
+  symbol: String! @indexed @searchable(weight: 2.0)
+  name: String @searchable
+  geckoId: String @unique @indexed            # CoinGecko id — DefiLlama unlock feed key
+  contractAddress: String @indexed
+  standard: TokenStandard
+  chainKey: String @indexed                   # FK -> Chain.key (native chain)
+}
+
+# A DeFi protocol / project. slug is DefiLlama's stable identifier.
+type Protocol @objectType {
+  id: ID! @primary
+  slug: String! @unique @indexed @immutable   # DefiLlama slug
+  name: String! @searchable(weight: 2.0)
+  category: String @indexed                    # "Dexes", "Lending", "CDP", ...
+  chainKey: String @indexed                    # FK -> Chain.key (primary chain)
+  githubRepo: String @indexed                  # "org/repo" — joins dev-activity signals
+  geckoId: String @indexed                     # links a protocol to its governance Token
+}
+
+# An on-chain address. Labels come from Nansen/Dune/Whale-Alert; category
+# records how trustworthy the label is.
+type Wallet @objectType {
+  id: ID! @primary
+  address: String! @unique @indexed @immutable
+  chainKey: String! @indexed                   # FK -> Chain.key
+  label: String @searchable                    # "Binance 14", "a16z", "Jump Trading"
+  category: WalletCategory!
+  labelSource: String                          # which collector attributed the label
+}
+
+# A trading venue (CEX or DEX). exchangeKey is CCXT's exchange id.
+type Exchange @objectType {
+  id: ID! @primary
+  exchangeKey: String! @unique @indexed @immutable   # CCXT id: "binance", "coinbase"
+  name: String! @searchable
+  kind: ExchangeKind!
+}
+
+# A VC / fund / smart-money cohort — the "who's backing what" entity. Sparsely
+# populated in Phase 1 (Nansen smart-money cohorts); the FundBacksProtocol link
+# fills in once Firecrawl VC-portfolio pages land (PLAN.md §3, Phase 2 tail).
+type Fund @objectType {
+  id: ID! @primary
+  name: String! @unique @indexed @searchable(weight: 2.0)
+  kind: FundKind!
+  description: String
+}

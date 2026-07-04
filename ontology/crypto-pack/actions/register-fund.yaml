@@ -1,0 +1,16 @@
+# actions/register-fund.yaml
+action: RegisterFund
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can register funds"
+
+effects:
+  - type: createObject
+    objectType: "Fund"
+    properties:
+      name: "params.name"
+      kind: "params.kind"
+      description: "params.description"

@@ -1,0 +1,18 @@
+# actions/register-wallet.yaml
+action: RegisterWallet
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can register wallets"
+
+effects:
+  - type: createObject
+    objectType: "Wallet"
+    properties:
+      address: "params.address"
+      chainKey: "params.chainKey"
+      label: "params.label"
+      category: "params.category"
+      labelSource: "params.labelSource"

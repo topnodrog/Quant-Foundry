@@ -1,0 +1,22 @@
+# actions/record-unlock-event.yaml
+action: RecordUnlockEvent
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can record unlock events"
+
+effects:
+  - type: createObject
+    objectType: "UnlockEvent"
+    properties:
+      tokenGeckoId: "params.tokenGeckoId"
+      unlockAt: "params.unlockAt"
+      amountTokens: "params.amountTokens"
+      amountUsd: "params.amountUsd"
+      pctOfCirculating: "params.pctOfCirculating"
+      category: "params.category"
+      observedAt: "params.observedAt"
+      tier: "params.tier"
+      source: "params.source"
