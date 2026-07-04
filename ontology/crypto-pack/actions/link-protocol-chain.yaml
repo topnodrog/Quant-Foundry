@@ -1,0 +1,15 @@
+# actions/link-protocol-chain.yaml
+# Protocol --on--> Chain (primary chain grouping).
+action: LinkProtocolChain
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link protocols to chains"
+
+effects:
+  - type: createLink
+    linkType: "ProtocolOnChain"
+    from: "protocol"
+    to: "chain"

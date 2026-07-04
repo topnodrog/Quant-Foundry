@@ -1,0 +1,18 @@
+# actions/link-fund-holding.yaml
+# Fund --holds--> Token, from Holding rows (latest snapshot per fund/token pair).
+action: LinkFundHolding
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link fund holdings"
+
+effects:
+  - type: createLink
+    linkType: "FundHoldsToken"
+    from: "fund"
+    to: "token"
+    properties:
+      amountUsd: "params.amountUsd"
+      observedAt: "params.observedAt"

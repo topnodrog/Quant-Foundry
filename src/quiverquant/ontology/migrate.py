@@ -19,7 +19,14 @@ from collections import Counter
 from typing import Any, Iterator
 
 from quiverquant.ontology.client import OpenFoundryClient
-from quiverquant.ontology.mapping import ActionCall, map_row
+from quiverquant.ontology.mapping import (
+    EDGE_ENDPOINT_PARAMS,
+    ActionCall,
+    EdgeSpec,
+    aggregate_edges,
+    derive_edges,
+    map_row,
+)
 from quiverquant.storage import get_connection
 
 
@@ -66,32 +73,61 @@ def run(source: str | None = None, limit: int | None = None,
     fail_by_action: Counter[str] = Counter()
     error_samples: dict[str, str] = {}
     skipped_types: Counter[str] = Counter()
+    node_ids: dict[str, str] = {}          # dedupe_key -> created object id
+    edge_specs: list[EdgeSpec] = []
     rows_seen = 0
     calls_made = 0
     samples: dict[str, dict[str, Any]] = {}
     failures = 0
 
+    def _do(action: str, params: dict[str, Any]) -> dict[str, Any] | None:
+        nonlocal calls_made, failures
+        action_counts[action] += 1
+        if action not in samples and len(samples) < 100:
+            samples[action] = params
+        try:
+            result = client.call_action(action, params)
+            calls_made += 1
+            return result
+        except Exception as exc:  # noqa: BLE001 - report, keep going
+            failures += 1
+            fail_by_action[action] += 1
+            error_samples.setdefault(action, str(exc))
+            return None
+
+    # ── Pass 1: nodes + observations (capture created object ids) ──
     for row, calls in _plan(source, limit):
         rows_seen += 1
+        edge_specs.extend(derive_edges(row))
         if not calls:
             skipped_types[row["signal_type"]] += 1
             continue
         for call in calls:
-            action_counts[call.action] += 1
-            if call.action not in samples and len(samples) < 100:
-                samples[call.action] = call.params
-            try:
-                client.call_action(call.action, call.params)
-                calls_made += 1
-            except Exception as exc:  # noqa: BLE001 - report, keep going
-                failures += 1
-                fail_by_action[call.action] += 1
-                error_samples.setdefault(call.action, str(exc))
+            result = _do(call.action, call.params)
+            if call.dedupe_key and result and not dry_run:
+                affected = (result.get("data") or {}).get("affectedObjects") or []
+                if affected:
+                    node_ids[call.dedupe_key] = affected[0]["id"]
+
+    # ── Pass 2: graph edges (resolve endpoints by captured id, then createLink) ──
+    edges = aggregate_edges(edge_specs)
+    edge_unresolved = 0
+    for e in edges:
+        if dry_run:
+            action_counts[e.action] += 1  # plan only — ids resolve at run time
+            continue
+        from_id, to_id = node_ids.get(e.from_key), node_ids.get(e.to_key)
+        if not from_id or not to_id:
+            edge_unresolved += 1
+            continue
+        p_from, p_to = EDGE_ENDPOINT_PARAMS[e.action]
+        _do(e.action, {p_from: from_id, p_to: to_id, **e.props})
 
     mode = "DRY RUN" if dry_run else "LIVE"
     print(f"\n=== migrate-ontology [{mode}] ===")
     print(f"rows read:        {rows_seen}")
     print(f"action calls ok:  {calls_made}")
+    print(f"aggregated edges: {len(edges)}" + (f" ({edge_unresolved} unresolved)" if edge_unresolved else ""))
     if failures:
         print(f"failures:         {failures}")
     print("\nby action (attempted / failed):")

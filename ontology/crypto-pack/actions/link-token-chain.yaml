@@ -1,0 +1,15 @@
+# actions/link-token-chain.yaml
+# Token --on--> Chain (native chain grouping).
+action: LinkTokenChain
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link tokens to chains"
+
+effects:
+  - type: createLink
+    linkType: "TokenOnChain"
+    from: "token"
+    to: "chain"

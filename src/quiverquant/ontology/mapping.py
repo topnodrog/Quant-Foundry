@@ -337,3 +337,91 @@ def map_row(row: dict[str, Any]) -> list[ActionCall]:
     if handler is None:
         return []
     return handler(row)
+
+
+# ─── Graph edges ──────────────────────────────────────────────────────────
+# Nodes are created first (map_row); edges are derived in a second pass because
+# Open Foundry's createLink resolves endpoints by object ID, which only exists
+# once the nodes are created. Each EdgeSpec names its endpoints by the SAME
+# dedupe_key the Register* calls use, so the migrator can resolve them via the
+# id index it built during the node pass.
+
+@dataclass(frozen=True)
+class EdgeSpec:
+    action: str          # Link* action name
+    from_key: str        # dedupe_key of the source node (matches a Register* call)
+    to_key: str          # dedupe_key of the target node
+    props: dict[str, Any] = field(default_factory=dict)
+
+
+# action -> (from-endpoint param name, to-endpoint param name)
+EDGE_ENDPOINT_PARAMS: dict[str, tuple[str, str]] = {
+    "LinkWalletTransfer": ("fromWallet", "toWallet"),
+    "LinkFundHolding": ("fund", "token"),
+    "LinkTokenChain": ("token", "chain"),
+    "LinkProtocolChain": ("protocol", "chain"),
+    "LinkExchangeToken": ("exchange", "token"),
+}
+
+
+def derive_edges(row: dict[str, Any]) -> list[EdgeSpec]:
+    """Per-row edge contributions. The migrator aggregates these across rows
+    (dedupes plain edges; sums/rolls up WalletTransferredTo and FundHoldsToken)
+    before resolving endpoints and calling the Link* actions."""
+    st, pl, ts = row["signal_type"], row["payload"], _iso(row["ts"])
+    edges: list[EdgeSpec] = []
+
+    if st == "dune_query_row":  # ETH whale transfers with structured from/to
+        frm, to = pl.get("from_address"), pl.get("to_address")
+        if frm and to:
+            edges.append(EdgeSpec("LinkWalletTransfer", f"Wallet:{frm}", f"Wallet:{to}",
+                                  {"lastTransferAt": ts, "amountUsd": None}))
+        edges.append(EdgeSpec("LinkTokenChain", "Token:ETH", "Chain:ethereum"))
+
+    elif st == "smart_money_holding":  # Nansen: fund holds token
+        sym, chain = pl.get("token_symbol"), _chain_key(pl.get("chain"))
+        if sym:
+            edges.append(EdgeSpec("LinkFundHolding", f"Fund:{_NANSEN_FUND}", f"Token:{sym}",
+                                  {"amountUsd": pl.get("value_usd"), "observedAt": ts}))
+            if chain:
+                edges.append(EdgeSpec("LinkTokenChain", f"Token:{sym}", f"Chain:{chain}"))
+
+    elif st == "tvl_snapshot":  # protocol on chain
+        chain = _chain_key(pl.get("chain"))
+        if chain:
+            edges.append(EdgeSpec("LinkProtocolChain", f"Protocol:{row['entity']}", f"Chain:{chain}"))
+
+    elif st == "ticker_snapshot":  # exchange lists token
+        ex, pair = pl.get("exchange"), pl.get("symbol")
+        base = pair.split("/")[0] if pair else None
+        if ex and base:
+            edges.append(EdgeSpec("LinkExchangeToken", f"Exchange:{ex}", f"Token:{base}"))
+
+    return edges
+
+
+def aggregate_edges(specs: list[EdgeSpec]) -> list[EdgeSpec]:
+    """Collapse per-row EdgeSpecs to one per (action, from, to). WalletTransferredTo
+    rolls up transferCount/totalUsd/lastTransferAt; FundHoldsToken keeps the latest
+    observation; the plain grouping edges just dedupe."""
+    groups: dict[tuple[str, str, str], list[EdgeSpec]] = {}
+    for s in specs:
+        groups.setdefault((s.action, s.from_key, s.to_key), []).append(s)
+
+    out: list[EdgeSpec] = []
+    for (action, fk, tk), members in groups.items():
+        if action == "LinkWalletTransfer":
+            usd = [m.props.get("amountUsd") for m in members if m.props.get("amountUsd") is not None]
+            props = {
+                "transferCount": len(members),
+                "totalUsd": sum(usd) if usd else None,
+                "lastTransferAt": max(m.props["lastTransferAt"] for m in members),
+            }
+        elif action == "LinkFundHolding":
+            latest = max(members, key=lambda m: m.props.get("observedAt") or "")
+            props = {"amountUsd": latest.props.get("amountUsd"),
+                     "observedAt": latest.props.get("observedAt")}
+        else:
+            props = {}
+        out.append(EdgeSpec(action, fk, tk, props))
+    return out

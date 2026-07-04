@@ -170,3 +170,39 @@ type RecordChainMetric @actionType {
   tier: SignalTier! @param
   source: String! @param
 }
+
+# ── Graph-edge builders (createLink effects) ──
+# Endpoint params are object types, so the request passes each endpoint's
+# object ID (resolved by the executor via storage.getObject). The bridge
+# captures IDs from the Register* responses and calls these after the nodes
+# exist. Edges are aggregated per endpoint pair before calling (one edge/pair).
+
+type LinkWalletTransfer @actionType {
+  fromWallet: Wallet! @param
+  toWallet: Wallet! @param
+  lastTransferAt: DateTime! @param
+  transferCount: Int! @param
+  totalUsd: Float @param
+}
+
+type LinkFundHolding @actionType {
+  fund: Fund! @param
+  token: Token! @param
+  amountUsd: Float @param
+  observedAt: DateTime! @param
+}
+
+type LinkTokenChain @actionType {
+  token: Token! @param
+  chain: Chain! @param
+}
+
+type LinkProtocolChain @actionType {
+  protocol: Protocol! @param
+  chain: Chain! @param
+}
+
+type LinkExchangeToken @actionType {
+  exchange: Exchange! @param
+  token: Token! @param
+}

@@ -15,7 +15,7 @@ dependencies:
 provides:
   objectTypes: 15      # 6 entities + 9 signals
   linkTypes: 7
-  actionTypes: 15      # 6 Register* + 9 Record*
+  actionTypes: 20      # 6 Register* + 9 Record* + 5 Link*
   functions: 0
   connectors: 0
   widgets: 0
@@ -44,6 +44,11 @@ actions:
   - actions/record-regulatory-filing.yaml
   - actions/record-sentiment.yaml
   - actions/record-chain-metric.yaml
+  - actions/link-wallet-transfer.yaml
+  - actions/link-fund-holding.yaml
+  - actions/link-token-chain.yaml
+  - actions/link-protocol-chain.yaml
+  - actions/link-exchange-token.yaml
 
 permissions:
   - permissions/crypto-roles.fga

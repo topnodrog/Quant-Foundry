@@ -1,0 +1,19 @@
+# actions/link-wallet-transfer.yaml
+# Wallet --transferred_to--> Wallet, aggregated from WhaleTransfer rows.
+action: LinkWalletTransfer
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link wallet transfers"
+
+effects:
+  - type: createLink
+    linkType: "WalletTransferredTo"
+    from: "fromWallet"
+    to: "toWallet"
+    properties:
+      lastTransferAt: "params.lastTransferAt"
+      transferCount: "params.transferCount"
+      totalUsd: "params.totalUsd"

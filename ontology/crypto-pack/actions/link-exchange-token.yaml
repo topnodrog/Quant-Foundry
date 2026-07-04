@@ -1,0 +1,15 @@
+# actions/link-exchange-token.yaml
+# Exchange --lists--> Token, from CCXT trading pairs.
+action: LinkExchangeToken
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link exchanges to tokens"
+
+effects:
+  - type: createLink
+    linkType: "ExchangeListsToken"
+    from: "exchange"
+    to: "token"
