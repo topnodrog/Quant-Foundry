@@ -1,12 +1,14 @@
 # api.quiverquant.com (crypto alpha engine — research project)
 
-**Status: Phase 1 complete (8 live collectors). Phase 2 (UNIFY layer) in
-progress — the Open Foundry crypto Domain Pack and the raw_signals → ontology
-migration bridge are built and validated offline (`--dry-run` maps all 230
-stored rows into 332 governed-action calls; 7/7 mapping tests pass). Remaining
-Phase 2 step: stand up the Open Foundry stack under Docker and run live
-ingestion. No backtesting, paper trading, or execution code yet — see `PLAN.md`
-for the full phased roadmap.**
+**Status: Phase 1 complete (8 live collectors). Phase 2 (UNIFY layer) core is
+live — the Open Foundry crypto Domain Pack loads on the running stack (Postgres
+17 + Apache AGE; full ODL semantic validation passed) and the migration bridge
+has ingested all 230 stored `raw_signals` rows into the ontology as 332
+governed-action calls with 0 failures (verified 332 objects across all 15
+types via REST). Remaining Phase 2 tails: populate the graph link edges
+(node/observation objects are in; `WalletTransferredTo`/`FundHoldsToken`/etc.
+edges are not yet) and add Firecrawl-sourced VC/unlock data. No backtesting,
+paper trading, or execution code yet — see `PLAN.md` for the full roadmap.**
 
 ## Goal
 
@@ -73,10 +75,10 @@ uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology inge
 
 - **Phase 0 (done):** gather components, research each, produce `PLAN.md`
 - **Phase 1 (done):** data collectors above
-- **Phase 2 (in progress):** Open Foundry crypto Domain Pack (`ontology/crypto-pack/`)
-  and the raw_signals → ontology migration bridge (`src/quiverquant/ontology/`)
-  are built and dry-run-validated; next is standing up the stack (`deploy/`)
-  under Docker for live ingestion, then Firecrawl-sourced VC/unlock data
+- **Phase 2 (core done):** Open Foundry crypto Domain Pack (`ontology/crypto-pack/`)
+  loads on the live stack (`deploy/`) and the migration bridge
+  (`src/quiverquant/ontology/`) has ingested all 230 rows → 332 objects, verified.
+  Tails: populate graph link edges, then Firecrawl-sourced VC/unlock data
 - **Phase 3:** nautilus_trader integration, backtest first strategy
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required
