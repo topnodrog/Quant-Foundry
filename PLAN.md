@@ -1,6 +1,10 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
-**Status: Phase 0 complete (research + plan). No code written, no accounts created, no capital at risk.**
+**Status (updated 2026-07-03): Phases 0-1 done; Phase 2 core done. All 8 collectors are live (§2);
+the Open Foundry crypto Domain Pack (§4) loads on the running stack and every collected `raw_signals`
+row has been ingested into the ontology (230 rows → 332 objects, verified). No capital at risk — no
+backtesting / paper-trading / execution code yet. Phase 2 tails (graph link edges, Firecrawl §3) and
+Phases 3-5 not started. `README.md` tracks live status.**
 Synthesizes: `research/quiverquant-data-landscape.md`, `research/firecrawl.md`,
 `research/github-openfoundry-nautilus.md`, `research/github-quanthedgefund-alphascanner.md`,
 `research/liquid-trade-coinvest-ai.md`.
@@ -237,10 +241,15 @@ ever gets there.
 ## 9. Phased roadmap
 
 - **Phase 0 (done, 2026-07-02):** gather components, deep-research each, write this plan.
-- **Phase 1:** build the 8 prioritized data collectors (§2) against plain Postgres/DuckDB storage.
-  No Firecrawl yet — start with sources that need zero scraping.
-- **Phase 2:** stand up Open Foundry, design the crypto Domain Pack, migrate Phase 1 collectors to
-  write into it. Add Firecrawl-sourced data (§3) once the ontology can absorb it.
+- **Phase 1 (done, 2026-07-03):** built the 8 prioritized data collectors (§2) against DuckDB
+  storage, all live against real APIs. Corrections found while building: unlocks are DefiLlama
+  paid-tier, and CryptoPanic has no free tier so it was swapped for the Alternative.me Fear & Greed
+  index (see README collector table). No Firecrawl yet.
+- **Phase 2 (core done, 2026-07-03):** designed the crypto Domain Pack (`ontology/crypto-pack/` —
+  15 object, 7 link, 15 action types), stood up the Open Foundry stack under Docker, and built the
+  `raw_signals` → ontology migration bridge (`src/quiverquant/ontology/`). All 230 rows ingested →
+  332 objects, verified via REST. **Tails:** populate the graph link edges (nodes/observations are
+  in, edges not yet), then add Firecrawl-sourced data (§3) once the ontology can absorb it.
 - **Phase 3:** integrate nautilus_trader, wire collected signals in as custom data, write and
   backtest first candidate strategy/strategies.
 - **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper
@@ -250,12 +259,11 @@ ever gets there.
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by
   anything above.
 
-## 10. Open questions for you before Phase 1 starts
+## 10. Decisions (resolved 2026-07-02, before Phase 1)
 
-- Confirm the 8-source Phase 1 collector order in §2, or reprioritize.
-- Any budget appetite for paid tiers later (e.g. Nansen Pro, Dune overage, Glassnode) once free
-  tiers prove the concept, or strictly free-only indefinitely?
-- Preference on nautilus_trader vs. freqtrade as the primary engine — nautilus_trader has the
-  stronger architecture fit but a real learning curve; freqtrade gets to a running bot faster.
-- How much of Phase 5's live-capital question do you want decided now vs. revisited once Phase 4
-  paper-trading results exist?
+- **Collector order:** the 8-source §2 order was confirmed as-is, no reprioritization.
+- **Paid tiers:** build both a free and a paid tier per source (not free-only indefinitely) — free
+  credits now, a paid upgrade path later, gated by env vars.
+- **Engine:** nautilus_trader is the primary engine (not freqtrade).
+- **Phase 5 live capital:** deferred — to be revisited only after Phase 4 paper-trading results
+  exist, and only with a separate explicit go-ahead.
