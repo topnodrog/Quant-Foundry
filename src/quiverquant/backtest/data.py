@@ -27,7 +27,7 @@ from nautilus_trader.model.data import Bar, BarType
 from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.persistence.wranglers import BarDataWrangler
 
-from quiverquant.backtest.signals import SignalPoint
+from quiverquant.backtest.signals import SignalPoint, TvlTotalPoint
 
 
 @customdataclass
@@ -41,6 +41,16 @@ class FearGreedData(Data):
 
     value: float
     classification: str
+
+
+@customdataclass
+class TvlData(Data):
+    """Aggregate DeFi TVL (USD, summed across tracked protocols) for one day —
+    a market-wide risk-on/off proxy delivered as a nautilus custom data event.
+    """
+
+    total_usd: float
+    protocol_count: int
 
 
 def build_bars(
@@ -84,6 +94,22 @@ def build_fear_greed_data(points: list[SignalPoint]) -> list[FearGreedData]:
                 ts_init=ns,
                 value=value,
                 classification=str(p.payload.get("classification") or ""),
+            )
+        )
+    return out
+
+
+def build_tvl_data(points: list[TvlTotalPoint]) -> list["TvlData"]:
+    """Map aggregate daily TVL points into ``TvlData`` events."""
+    out: list[TvlData] = []
+    for p in points:
+        ns = _dt_to_ns(p.ts)
+        out.append(
+            TvlData(
+                ts_event=ns,
+                ts_init=ns,
+                total_usd=float(p.total_usd),
+                protocol_count=int(p.protocol_count),
             )
         )
     return out

@@ -19,10 +19,16 @@ from nautilus_trader.model.objects import Money
 from nautilus_trader.model.currencies import USDT
 from nautilus_trader.test_kit.providers import TestInstrumentProvider
 
-from quiverquant.backtest.data import FearGreedData, build_bars, build_fear_greed_data
+from quiverquant.backtest.data import (
+    FearGreedData,
+    TvlData,
+    build_bars,
+    build_fear_greed_data,
+    build_tvl_data,
+)
 from quiverquant.backtest.observer import ObserverConfig, ObserverStrategy
 from quiverquant.backtest.ohlcv import backfill, read_ohlcv_df
-from quiverquant.backtest.signals import read_signal_points
+from quiverquant.backtest.signals import read_daily_tvl_total, read_signal_points
 
 # CCXT timeframe -> nautilus BarSpecification token
 _BAR_SPEC = {"1h": "1-HOUR", "4h": "4-HOUR", "1d": "1-DAY"}
@@ -82,6 +88,11 @@ def run_backtest(
         fg_type = DataType(FearGreedData)
         engine.add_data([CustomData(fg_type, d) for d in fg], client_id=_CLIENT_ID)
 
+    tvl = build_tvl_data(read_daily_tvl_total())
+    if tvl:
+        tvl_type = DataType(TvlData)
+        engine.add_data([CustomData(tvl_type, d) for d in tvl], client_id=_CLIENT_ID)
+
     # --- strategy ----------------------------------------------------------------
     strategy = ObserverStrategy(ObserverConfig(instrument_id=instrument.id, bar_type=bar_type))
     engine.add_strategy(strategy)
@@ -95,6 +106,8 @@ def run_backtest(
         "bars_delivered": strategy.bar_count,
         "fear_greed_loaded": len(fg),
         "fear_greed_delivered": strategy.signal_count,
+        "tvl_loaded": len(tvl),
+        "tvl_delivered": strategy.tvl_count,
         "first_event": _ns_to_iso(strategy.first_ts_event),
         "last_event": _ns_to_iso(strategy.last_ts_event),
         "out_of_order_events": strategy.out_of_order,
@@ -110,6 +123,7 @@ def print_summary(summary: dict) -> None:
     ok = (
         summary["bars_delivered"] == summary["bars_loaded"]
         and summary["fear_greed_delivered"] == summary["fear_greed_loaded"]
+        and summary["tvl_delivered"] == summary["tvl_loaded"]
         and summary["out_of_order_events"] == 0
     )
-    print(f"\n  plumbing {'OK - both streams delivered in order' if ok else 'PROBLEM - see counts above'}")
+    print(f"\n  plumbing {'OK - all streams delivered in order' if ok else 'PROBLEM - see counts above'}")

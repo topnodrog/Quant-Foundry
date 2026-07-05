@@ -17,7 +17,7 @@ from nautilus_trader.model.data import BarType, DataType
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.trading.strategy import Strategy
 
-from quiverquant.backtest.data import FearGreedData
+from quiverquant.backtest.data import FearGreedData, TvlData
 
 
 class ObserverConfig(StrategyConfig, frozen=True):
@@ -30,6 +30,7 @@ class ObserverStrategy(Strategy):
         super().__init__(config)
         self.bar_count = 0
         self.signal_count = 0
+        self.tvl_count = 0
         self.first_ts_event: int | None = None
         self.last_ts_event: int | None = None
         self.out_of_order = 0
@@ -38,7 +39,8 @@ class ObserverStrategy(Strategy):
     def on_start(self) -> None:
         self.subscribe_bars(self.config.bar_type)
         self.subscribe_data(DataType(FearGreedData))
-        self.log.info("ObserverStrategy started — subscribed to bars + FearGreedData")
+        self.subscribe_data(DataType(TvlData))
+        self.log.info("ObserverStrategy started — subscribed to bars + FearGreedData + TvlData")
 
     def on_bar(self, bar) -> None:  # noqa: ANN001 - nautilus Bar
         self.bar_count += 1
@@ -48,11 +50,15 @@ class ObserverStrategy(Strategy):
         if isinstance(data, FearGreedData):
             self.signal_count += 1
             self._track(data.ts_event)
+        elif isinstance(data, TvlData):
+            self.tvl_count += 1
+            self._track(data.ts_event)
 
     def on_stop(self) -> None:
         self.log.info(
             f"ObserverStrategy stop — bars={self.bar_count} "
-            f"signals={self.signal_count} out_of_order={self.out_of_order}"
+            f"signals={self.signal_count} tvl={self.tvl_count} "
+            f"out_of_order={self.out_of_order}"
         )
 
     def _track(self, ts_event: int) -> None:

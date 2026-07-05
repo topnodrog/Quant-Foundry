@@ -21,6 +21,15 @@ from quiverquant.storage import get_connection
 
 
 @dataclass(frozen=True)
+class TvlTotalPoint:
+    """Aggregate DeFi TVL for one day. ``ts`` is tz-aware UTC (day start)."""
+
+    ts: datetime
+    total_usd: float
+    protocol_count: int
+
+
+@dataclass(frozen=True)
 class SignalPoint:
     """One observation in a signal series. ``ts`` is tz-aware UTC."""
 
@@ -62,3 +71,39 @@ def read_signal_points(
         parsed = payload if isinstance(payload, dict) else json.loads(payload)
         points.append(SignalPoint(ts=ts, entity=entity, payload=parsed))
     return points
+
+
+def read_daily_tvl_total(
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[TvlTotalPoint]:
+    """Sum ``tvl_history`` across all protocols per day into one market-wide
+    DeFi TVL series — a risk-on/off proxy that aligns with a BTC backtest better
+    than any single protocol. Ordered by day.
+    """
+    q = (
+        "SELECT CAST(ts AS DATE) AS d, "
+        "SUM(CAST(payload->>'$.tvl' AS DOUBLE)) AS total, "
+        "COUNT(*) AS n "
+        "FROM raw_signals WHERE signal_type = 'tvl_history'"
+    )
+    params: list[object] = []
+    if start is not None:
+        q += " AND ts >= ?"
+        params.append(start.replace(tzinfo=None))
+    if end is not None:
+        q += " AND ts < ?"
+        params.append(end.replace(tzinfo=None))
+    q += " GROUP BY 1 ORDER BY 1"
+
+    con = get_connection()
+    try:
+        rows = con.execute(q, params).fetchall()
+    finally:
+        con.close()
+
+    out: list[TvlTotalPoint] = []
+    for day, total, n in rows:
+        ts = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        out.append(TvlTotalPoint(ts=ts, total_usd=float(total or 0.0), protocol_count=int(n)))
+    return out

@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from quiverquant.backtest.data import build_fear_greed_data  # noqa: E402
-from quiverquant.backtest.signals import SignalPoint  # noqa: E402
+from quiverquant.backtest.data import build_fear_greed_data, build_tvl_data  # noqa: E402
+from quiverquant.backtest.signals import SignalPoint, TvlTotalPoint  # noqa: E402
 
 TS = datetime(2026, 7, 3, 0, 0, 0, tzinfo=timezone.utc)
 TS_NS = int(TS.timestamp() * 1_000_000_000)
@@ -65,6 +65,25 @@ def test_preserves_order_and_count():
     ]
     out = build_fear_greed_data(pts)
     assert [d.value for d in out] == [10.0, 90.0]
+
+
+def test_build_tvl_data_maps_fields():
+    pts = [TvlTotalPoint(ts=TS, total_usd=1.5e10, protocol_count=25)]
+    out = build_tvl_data(pts)
+    assert len(out) == 1
+    d = out[0]
+    assert d.total_usd == 1.5e10
+    assert d.protocol_count == 25
+    assert d.ts_event == TS_NS and d.ts_init == TS_NS
+
+
+def test_build_tvl_data_preserves_order():
+    pts = [
+        TvlTotalPoint(ts=datetime(2026, 7, 1, tzinfo=timezone.utc), total_usd=10.0, protocol_count=3),
+        TvlTotalPoint(ts=datetime(2026, 7, 2, tzinfo=timezone.utc), total_usd=20.0, protocol_count=3),
+    ]
+    out = build_tvl_data(pts)
+    assert [d.total_usd for d in out] == [10.0, 20.0]
 
 
 def _run_standalone() -> int:
