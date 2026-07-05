@@ -65,8 +65,8 @@ uv sync
 uv run quiverquant                       # run all 9 collectors
 uv run quiverquant defillama ccxt        # run specific ones
 uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology ingestion
-uv run quiverquant backtest                      # Phase 3: plumbing backtest (bars + Fear & Greed)
-uv run quiverquant backtest --timeframe 1h --days 90   # wider bar backfill
+uv run quiverquant backtest                      # Phase 3: plumbing backtest (observer, 3 streams)
+uv run quiverquant backtest --strategy sentiment # Phase 3: Fear & Greed contrarian strategy (with fees)
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
@@ -104,7 +104,12 @@ uv run quiverquant backfill dev-activity         # Phase 3: weekly commit histor
   - History backfill done — `raw_signals` now holds three real multi-year series:
     Fear & Greed (3,073 daily, 2018+), DefiLlama TVL (27,709 points, 25 protocols,
     2019+), and GitHub dev-activity (2,173 repo-weeks, 4 repos, bitcoin back to
-    2009). Next: wire TVL in as a second backtest signal and write a first real
-    strategy + fill/fee models.
+    2009). Aggregate DeFi TVL is wired into the backtest as a second custom-data
+    signal alongside Fear & Greed.
+  - First real strategy done — Fear & Greed contrarian (long/flat on BTC/USDT,
+    Binance 0.1% maker/taker fees + probabilistic slippage). Over 2022-07→2026-07
+    it returned +46% (83% win rate, 6 trades) vs +195% buy-&-hold — it sits in
+    cash during rallies, so it trails in a bull market. NOT qualified — it's the
+    first candidate for the Phase 4 §6 gates (walk-forward, significance).
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

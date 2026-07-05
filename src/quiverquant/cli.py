@@ -116,21 +116,43 @@ def _backfill_cli(args: list[str]) -> int:
 def _backtest_cli(args: list[str]) -> int:
     import argparse
 
-    from quiverquant.backtest.run import print_summary, run_backtest
+    from quiverquant.backtest.run import (
+        print_strategy_summary,
+        print_summary,
+        run_backtest,
+        run_sentiment_backtest,
+    )
 
     parser = argparse.ArgumentParser(prog="quiverquant backtest")
+    parser.add_argument(
+        "--strategy",
+        default="observer",
+        choices=["observer", "sentiment"],
+        help="observer = plumbing check; sentiment = Fear & Greed contrarian",
+    )
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
-    parser.add_argument("--timeframe", default="1h", choices=["1h", "4h", "1d"])
-    parser.add_argument("--days", type=int, default=35, help="days of bars to backfill on cache miss")
+    parser.add_argument("--timeframe", help="default 1h for observer, 1d for sentiment")
+    parser.add_argument("--days", type=int, help="days of bars to backfill on cache miss")
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
+
+    if ns.strategy == "sentiment":
+        summary = run_sentiment_backtest(
+            exchange=ns.exchange,
+            symbol=ns.symbol,
+            timeframe=ns.timeframe or "1d",
+            days=ns.days or 1460,
+            starting_balance=ns.balance,
+        )
+        print_strategy_summary(summary)
+        return 0
 
     summary = run_backtest(
         exchange=ns.exchange,
         symbol=ns.symbol,
-        timeframe=ns.timeframe,
-        days=ns.days,
+        timeframe=ns.timeframe or "1h",
+        days=ns.days or 35,
         starting_balance=ns.balance,
     )
     print_summary(summary)

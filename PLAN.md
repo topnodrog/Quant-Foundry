@@ -264,10 +264,20 @@ ever gets there.
     `uv run quiverquant backtest`.
   - *History backfill (done):* `src/quiverquant/backfill/` + `quiverquant backfill`. Turned the
     point-in-time collectors into real time series where the source exposes free history — Fear &
-    Greed full history (3,073 daily rows, 2018+) and DefiLlama per-protocol daily TVL (`tvl_history`,
-    27,709 rows across the top 25 non-CEX protocols, 2019+). Deduped by (protocol, day), idempotent.
-  - *Next:* backfill GitHub dev-activity history; wire `tvl_history` in as a second backtest signal;
-    write a first real strategy with realistic fill/fee models (§6 gate 1).
+    Greed (3,073 daily, 2018+), DefiLlama per-protocol daily TVL (`tvl_history`, 27,709 rows, top 25
+    non-CEX protocols, 2019+), and GitHub weekly dev-activity (`dev_activity_history`, 2,173
+    repo-weeks, 4 repos, bitcoin back to 2009). Deduped, idempotent.
+  - *Second signal (done):* aggregate daily DeFi TVL wired into the backtest as a `TvlData` custom
+    stream beside Fear & Greed (`read_daily_tvl_total`).
+  - *First real strategy (done):* Fear & Greed contrarian, long/flat on BTC/USDT with Binance 0.1%
+    maker/taker fees + probabilistic slippage (`backtest/strategy.py`, `quiverquant backtest
+    --strategy sentiment`). 2022-07→2026-07: +46% (83% win rate, 6 trades) vs +195% buy-&-hold —
+    trails in a bull market because it holds cash through rallies. Reported as ending NET WORTH
+    (USDT + BTC*last), since a CASH spot account with an open position at the end splits value across
+    currency buckets; the raw per-currency PnL is misleading. Return-based ratios (Sharpe etc.) are
+    unreliable here — too few trade days for a daily-return series.
+  - *Next (Phase 4):* walk-forward + statistical-significance harness (§6 steps 2-3) to actually
+    judge this and future candidates; add signals (TVL/dev-activity/regime) to the strategy.
 - **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper
   trade (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer simulation mode.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
