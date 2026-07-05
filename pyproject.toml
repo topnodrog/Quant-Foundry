@@ -9,6 +9,8 @@ dependencies = [
     "duckdb>=1.1",
     "python-dotenv>=1.0",
     "feedparser>=6.0",
+    "nautilus-trader>=1.221.0",
+    "pandas>=2.2",
 ]
 
 [build-system]

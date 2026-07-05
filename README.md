@@ -8,9 +8,12 @@ are now closed: (a) graph link edges are populated (`WalletTransferredTo`,
 `FundHoldsToken`, `ProtocolOnChain`, `TokenOnChain`, `ExchangeListsToken`), and
 (b) Firecrawl-sourced VC-portfolio data now fills the `FundBacksProtocol`
 "who-backs-what" edges. Latest verified live graph: 570 vertices / 327 edges
-(incl. 226 `FundBacksProtocol` from a16z/Paradigm/Dragonfly portfolios). No
-backtesting, paper trading, or execution code yet — see `PLAN.md` for the full
-roadmap.**
+(incl. 226 `FundBacksProtocol` from a16z/Paradigm/Dragonfly portfolios).
+**Phase 3 has started (increment 1 — plumbing):** the nautilus_trader
+`BacktestEngine` now ingests historical price bars (CCXT-sourced, DuckDB-cached)
+and the Fear & Greed alt-data series as a custom `Data` stream, delivered
+time-ordered with no lookahead. It runs a no-op observer strategy only — no
+orders, no P&L, no signal logic yet. See `PLAN.md` for the full roadmap.**
 
 ## Goal
 
@@ -45,6 +48,9 @@ edge, not a guarantee.
   - `collectors/` — one module per PLAN.md §2 source
   - `ontology/` — Phase 2 bridge: maps `raw_signals` rows into the Open Foundry
     crypto ontology (`mapping.py` pure/tested, `client.py`, `migrate.py`)
+  - `backtest/` — Phase 3 nautilus_trader pipeline: `ohlcv.py` (CCXT historical
+    bars → DuckDB), `signals.py` + `data.py` (`raw_signals` → custom `Data`),
+    `observer.py` (no-op observer strategy), `run.py` (BacktestEngine wiring)
 - `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
 - `deploy/` — how to stand up Open Foundry with the crypto pack mounted
 - `.env.example` — every API key a collector can use, and which sources need none
@@ -57,6 +63,8 @@ uv sync
 uv run quiverquant                       # run all 9 collectors
 uv run quiverquant defillama ccxt        # run specific ones
 uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology ingestion
+uv run quiverquant backtest                      # Phase 3: plumbing backtest (bars + Fear & Greed)
+uv run quiverquant backtest --timeframe 1h --days 90   # wider bar backfill
 ```
 
 ## Collector status (2026-07-03)
@@ -84,6 +92,9 @@ uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology inge
   including graph link edges. Both tails closed: graph link edges populated, and
   Firecrawl VC-portfolio data fills the `FundBacksProtocol` edges (collector #9).
   Remaining Firecrawl extension (not blocking): token-unlock/vesting calendars
-- **Phase 3:** nautilus_trader integration, backtest first strategy
+- **Phase 3 (in progress):** nautilus_trader integration. Increment 1 done —
+  data plumbing: historical bars + Fear & Greed custom data flow through the
+  `BacktestEngine` time-ordered (`uv run quiverquant backtest`), no-op observer
+  strategy, no orders/P&L. Next: a first real signal strategy + fill/fee models.
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

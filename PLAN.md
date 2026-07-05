@@ -254,8 +254,16 @@ ever gets there.
   the `FundBacksProtocol` "who-backs-what" edges. Latest live graph: 570 vertices / 327 edges (226
   `FundBacksProtocol` from a16z/Paradigm/Dragonfly). Remaining §3 extension (non-blocking):
   token-unlock/vesting calendars.
-- **Phase 3:** integrate nautilus_trader, wire collected signals in as custom data, write and
-  backtest first candidate strategy/strategies.
+- **Phase 3 (in progress):** integrate nautilus_trader, wire collected signals in as custom data,
+  write and backtest first candidate strategy/strategies.
+  - *Increment 1 (done):* data plumbing (`src/quiverquant/backtest/`). Historical OHLCV bars
+    (CCXT `fetch_ohlcv`, DuckDB-cached — the Phase 1 CCXT collector only stored live ticker
+    snapshots, useless for a backtest) and the Fear & Greed series (the only alt-data signal with
+    real history today) both flow through the `BacktestEngine` as time-ordered `Bar` / custom
+    `Data`, verified delivered with zero lookahead by a no-op observer strategy. No orders, no P&L.
+    `uv run quiverquant backtest`.
+  - *Next:* backfill more signal history (DefiLlama TVL, dev-activity) so strategies aren't
+    single-signal; write a first real strategy with realistic fill/fee models (§6 gate 1).
 - **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper
   trade (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer simulation mode.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion

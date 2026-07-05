@@ -37,6 +37,11 @@ def main() -> None:
 
         raise SystemExit(migrate_main(argv[1:]))
 
+    if argv and argv[0] == "backtest":
+        # Phase 3: plumbing backtest — feed price bars + Fear & Greed into
+        # nautilus_trader's BacktestEngine and report data flow.
+        raise SystemExit(_backtest_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -45,6 +50,30 @@ def main() -> None:
             continue
         n = cls().run()
         print(f"{key}: inserted {n} rows")
+
+
+def _backtest_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.backtest.run import print_summary, run_backtest
+
+    parser = argparse.ArgumentParser(prog="quiverquant backtest")
+    parser.add_argument("--exchange", default="binance")
+    parser.add_argument("--symbol", default="BTC/USDT")
+    parser.add_argument("--timeframe", default="1h", choices=["1h", "4h", "1d"])
+    parser.add_argument("--days", type=int, default=35, help="days of bars to backfill on cache miss")
+    parser.add_argument("--balance", type=float, default=100_000.0)
+    ns = parser.parse_args(args)
+
+    summary = run_backtest(
+        exchange=ns.exchange,
+        symbol=ns.symbol,
+        timeframe=ns.timeframe,
+        days=ns.days,
+        starting_balance=ns.balance,
+    )
+    print_summary(summary)
+    return 0
 
 
 if __name__ == "__main__":
