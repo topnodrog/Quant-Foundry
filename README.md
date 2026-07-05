@@ -69,6 +69,7 @@ uv run quiverquant backtest                      # Phase 3: plumbing backtest (b
 uv run quiverquant backtest --timeframe 1h --days 90   # wider bar backfill
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
+uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
 ```
 
 ## Collector status (2026-07-03)
@@ -100,9 +101,10 @@ uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL hist
   - Increment 1 done — data plumbing: historical bars + Fear & Greed custom data
     flow through the `BacktestEngine` time-ordered (`uv run quiverquant backtest`),
     no-op observer strategy, no orders/P&L.
-  - History backfill done — `raw_signals` now holds two real multi-year series:
-    Fear & Greed (3,073 daily, 2018+) and DefiLlama TVL (27,709 points, 25
-    protocols, 2019+). Next: backfill GitHub dev-activity, then wire TVL in as a
-    second backtest signal and write a first real strategy + fill/fee models.
+  - History backfill done — `raw_signals` now holds three real multi-year series:
+    Fear & Greed (3,073 daily, 2018+), DefiLlama TVL (27,709 points, 25 protocols,
+    2019+), and GitHub dev-activity (2,173 repo-weeks, 4 repos, bitcoin back to
+    2009). Next: wire TVL in as a second backtest signal and write a first real
+    strategy + fill/fee models.
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

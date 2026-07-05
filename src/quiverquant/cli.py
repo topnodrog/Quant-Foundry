@@ -71,6 +71,10 @@ def _backfill_cli(args: list[str]) -> int:
     p_tvl.add_argument("--slugs", nargs="*", help="explicit protocol slugs (overrides --top)")
     p_tvl.add_argument("--since", help="only points on/after this UTC date, YYYY-MM-DD")
 
+    p_dev = sub.add_parser("dev-activity", help="weekly commit history per repo")
+    p_dev.add_argument("--repos", nargs="*", help="explicit owner/repo list (default watchlist)")
+    p_dev.add_argument("--since", help="only weeks on/after this UTC date, YYYY-MM-DD")
+
     ns = parser.parse_args(args)
 
     if ns.source == "fear-greed":
@@ -92,6 +96,18 @@ def _backfill_cli(args: list[str]) -> int:
         )
         total = backfill_tvl_history(top=ns.top, slugs=ns.slugs, since=since)
         print(f"defillama-tvl: inserted {total} new TVL points")
+        return 0
+
+    if ns.source == "dev-activity":
+        from quiverquant.backfill.github_dev import backfill_dev_activity
+
+        since = (
+            datetime.strptime(ns.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if ns.since
+            else None
+        )
+        total = backfill_dev_activity(repos=ns.repos, since=since)
+        print(f"dev-activity: inserted {total} new repo-weeks")
         return 0
 
     return 1
