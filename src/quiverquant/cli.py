@@ -42,6 +42,11 @@ def main() -> None:
         # nautilus_trader's BacktestEngine and report data flow.
         raise SystemExit(_backtest_cli(argv[1:]))
 
+    if argv and argv[0] == "backfill":
+        # Phase 3 prep: pull full history for sources that expose it, so
+        # point-in-time collectors become backtestable time series.
+        raise SystemExit(_backfill_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -50,6 +55,46 @@ def main() -> None:
             continue
         n = cls().run()
         print(f"{key}: inserted {n} rows")
+
+
+def _backfill_cli(args: list[str]) -> int:
+    import argparse
+    from datetime import datetime, timezone
+
+    parser = argparse.ArgumentParser(prog="quiverquant backfill")
+    sub = parser.add_subparsers(dest="source", required=True)
+
+    p_fg = sub.add_parser("fear-greed", help="full Crypto Fear & Greed history")  # noqa: F841
+
+    p_tvl = sub.add_parser("defillama-tvl", help="daily TVL history per top protocol")
+    p_tvl.add_argument("--top", type=int, default=25, help="top-N protocols by TVL")
+    p_tvl.add_argument("--slugs", nargs="*", help="explicit protocol slugs (overrides --top)")
+    p_tvl.add_argument("--since", help="only points on/after this UTC date, YYYY-MM-DD")
+
+    ns = parser.parse_args(args)
+
+    if ns.source == "fear-greed":
+        # limit=0 asks Alternative.me for the full history; the collector already
+        # dedupes on the reading's date, so this is safe to re-run.
+        from quiverquant.collectors.fear_greed import FearGreedCollector
+
+        n = FearGreedCollector(limit=0).run()
+        print(f"fear-greed: inserted {n} new daily readings")
+        return 0
+
+    if ns.source == "defillama-tvl":
+        from quiverquant.backfill.defillama_tvl import backfill_tvl_history
+
+        since = (
+            datetime.strptime(ns.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if ns.since
+            else None
+        )
+        total = backfill_tvl_history(top=ns.top, slugs=ns.slugs, since=since)
+        print(f"defillama-tvl: inserted {total} new TVL points")
+        return 0
+
+    return 1
 
 
 def _backtest_cli(args: list[str]) -> int:

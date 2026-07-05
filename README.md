@@ -51,6 +51,8 @@ edge, not a guarantee.
   - `backtest/` — Phase 3 nautilus_trader pipeline: `ohlcv.py` (CCXT historical
     bars → DuckDB), `signals.py` + `data.py` (`raw_signals` → custom `Data`),
     `observer.py` (no-op observer strategy), `run.py` (BacktestEngine wiring)
+  - `backfill/` — Phase 3 historical backfills that turn point-in-time collectors
+    into real time series (`defillama_tvl.py`; Fear & Greed reuses its collector)
 - `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
 - `deploy/` — how to stand up Open Foundry with the crypto pack mounted
 - `.env.example` — every API key a collector can use, and which sources need none
@@ -65,6 +67,8 @@ uv run quiverquant defillama ccxt        # run specific ones
 uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology ingestion
 uv run quiverquant backtest                      # Phase 3: plumbing backtest (bars + Fear & Greed)
 uv run quiverquant backtest --timeframe 1h --days 90   # wider bar backfill
+uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
+uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 ```
 
 ## Collector status (2026-07-03)
@@ -92,9 +96,13 @@ uv run quiverquant backtest --timeframe 1h --days 90   # wider bar backfill
   including graph link edges. Both tails closed: graph link edges populated, and
   Firecrawl VC-portfolio data fills the `FundBacksProtocol` edges (collector #9).
   Remaining Firecrawl extension (not blocking): token-unlock/vesting calendars
-- **Phase 3 (in progress):** nautilus_trader integration. Increment 1 done —
-  data plumbing: historical bars + Fear & Greed custom data flow through the
-  `BacktestEngine` time-ordered (`uv run quiverquant backtest`), no-op observer
-  strategy, no orders/P&L. Next: a first real signal strategy + fill/fee models.
+- **Phase 3 (in progress):** nautilus_trader integration.
+  - Increment 1 done — data plumbing: historical bars + Fear & Greed custom data
+    flow through the `BacktestEngine` time-ordered (`uv run quiverquant backtest`),
+    no-op observer strategy, no orders/P&L.
+  - History backfill done — `raw_signals` now holds two real multi-year series:
+    Fear & Greed (3,073 daily, 2018+) and DefiLlama TVL (27,709 points, 25
+    protocols, 2019+). Next: backfill GitHub dev-activity, then wire TVL in as a
+    second backtest signal and write a first real strategy + fill/fee models.
 - **Phase 4:** walk-forward validation, statistical significance, paper trading
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

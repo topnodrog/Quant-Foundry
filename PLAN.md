@@ -262,8 +262,12 @@ ever gets there.
     real history today) both flow through the `BacktestEngine` as time-ordered `Bar` / custom
     `Data`, verified delivered with zero lookahead by a no-op observer strategy. No orders, no P&L.
     `uv run quiverquant backtest`.
-  - *Next:* backfill more signal history (DefiLlama TVL, dev-activity) so strategies aren't
-    single-signal; write a first real strategy with realistic fill/fee models (§6 gate 1).
+  - *History backfill (done):* `src/quiverquant/backfill/` + `quiverquant backfill`. Turned the
+    point-in-time collectors into real time series where the source exposes free history — Fear &
+    Greed full history (3,073 daily rows, 2018+) and DefiLlama per-protocol daily TVL (`tvl_history`,
+    27,709 rows across the top 25 non-CEX protocols, 2019+). Deduped by (protocol, day), idempotent.
+  - *Next:* backfill GitHub dev-activity history; wire `tvl_history` in as a second backtest signal;
+    write a first real strategy with realistic fill/fee models (§6 gate 1).
 - **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper
   trade (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer simulation mode.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
