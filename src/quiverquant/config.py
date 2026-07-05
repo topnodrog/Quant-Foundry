@@ -61,6 +61,9 @@ SOURCES: dict[str, SourceKeys] = {
     "whale_alert": SourceKeys(free_key_env="WHALE_ALERT_SOURCE"),
     "nansen": SourceKeys(free_key_env="NANSEN_API_KEY", paid_key_env="NANSEN_PAID_API_KEY"),
     "dune": SourceKeys(free_key_env="DUNE_API_KEY", paid_key_env="DUNE_PAID_API_KEY"),
+    # Firecrawl scrape gap-filler (PLAN.md §3). Keyless /scrape works (per-IP
+    # rate-limited); FIRECRAWL_API_KEY (fc-...) lifts the limits when supplied.
+    "firecrawl": SourceKeys(free_key_env="FIRECRAWL_API_KEY"),
 }
 
 

@@ -1,0 +1,20 @@
+# actions/link-fund-backs-protocol.yaml
+# Fund --backs--> Protocol ("who's backing what"), from Firecrawl VC-portfolio
+# rows (PLAN.md §3). Carries the round / announcement date / source page.
+action: LinkFundBacksProtocol
+version: 1
+reversible: false
+
+preconditions:
+  - expr: "actor.hasRole('ingestor') || actor.hasRole('analyst') || actor.hasRole('admin')"
+    error: "Only ingestors, analysts, or admins can link fund backings"
+
+effects:
+  - type: createLink
+    linkType: "FundBacksProtocol"
+    from: "fund"
+    to: "protocol"
+    properties:
+      round: "params.round"
+      announcedAt: "params.announcedAt"
+      sourceUrl: "params.sourceUrl"

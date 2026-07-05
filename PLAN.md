@@ -1,10 +1,11 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
-**Status (updated 2026-07-03): Phases 0-1 done; Phase 2 core done. All 8 collectors are live (§2);
-the Open Foundry crypto Domain Pack (§4) loads on the running stack and every collected `raw_signals`
-row has been ingested into the ontology (230 rows → 332 objects, verified). No capital at risk — no
-backtesting / paper-trading / execution code yet. Phase 2 tails (graph link edges, Firecrawl §3) and
-Phases 3-5 not started. `README.md` tracks live status.**
+**Status (updated 2026-07-05): Phases 0-2 done. 9 collectors are live (§2, incl. the Firecrawl
+VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the running stack and
+`raw_signals` rows are ingested into the ontology, graph edges included. Both Phase 2 tails are
+closed: graph link edges are populated, and Firecrawl VC-portfolio data fills the `FundBacksProtocol`
+edges (latest live graph: 570 vertices / 327 edges). No capital at risk — no backtesting /
+paper-trading / execution code yet. Phases 3-5 not started. `README.md` tracks live status.**
 Synthesizes: `research/quiverquant-data-landscape.md`, `research/firecrawl.md`,
 `research/github-openfoundry-nautilus.md`, `research/github-quanthedgefund-alphascanner.md`,
 `research/liquid-trade-coinvest-ai.md`.
@@ -245,11 +246,14 @@ ever gets there.
   storage, all live against real APIs. Corrections found while building: unlocks are DefiLlama
   paid-tier, and CryptoPanic has no free tier so it was swapped for the Alternative.me Fear & Greed
   index (see README collector table). No Firecrawl yet.
-- **Phase 2 (core done, 2026-07-03):** designed the crypto Domain Pack (`ontology/crypto-pack/` —
-  15 object, 7 link, 15 action types), stood up the Open Foundry stack under Docker, and built the
-  `raw_signals` → ontology migration bridge (`src/quiverquant/ontology/`). All 230 rows ingested →
-  332 objects, verified via REST. **Tails:** populate the graph link edges (nodes/observations are
-  in, edges not yet), then add Firecrawl-sourced data (§3) once the ontology can absorb it.
+- **Phase 2 (done, 2026-07-03 → 2026-07-05):** designed the crypto Domain Pack (`ontology/crypto-pack/`
+  — 15 object, 7 link, 21 action types), stood up the Open Foundry stack under Docker, and built the
+  `raw_signals` → ontology migration bridge (`src/quiverquant/ontology/`). Tails closed: (a) graph
+  link edges populated (a second migrate pass resolves endpoints by captured object id, then
+  `createLink`); (b) the Firecrawl VC-portfolio collector (§3, `collectors/firecrawl_vc.py`) fills
+  the `FundBacksProtocol` "who-backs-what" edges. Latest live graph: 570 vertices / 327 edges (226
+  `FundBacksProtocol` from a16z/Paradigm/Dragonfly). Remaining §3 extension (non-blocking):
+  token-unlock/vesting calendars.
 - **Phase 3:** integrate nautilus_trader, wire collected signals in as custom data, write and
   backtest first candidate strategy/strategies.
 - **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper

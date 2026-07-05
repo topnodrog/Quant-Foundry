@@ -9,6 +9,7 @@ from quiverquant.collectors.cryptopanic import CryptoPanicCollector
 from quiverquant.collectors.defillama import DefiLlamaCollector
 from quiverquant.collectors.dev_activity import DevActivityCollector
 from quiverquant.collectors.fear_greed import FearGreedCollector
+from quiverquant.collectors.firecrawl_vc import FirecrawlVCCollector
 from quiverquant.collectors.onchain import OnchainCollector
 from quiverquant.collectors.sec_edgar import SecEdgarCollector
 from quiverquant.collectors.smart_money import SmartMoneyCollector
@@ -24,6 +25,7 @@ COLLECTORS = {
     "sec_edgar": SecEdgarCollector,
     "whale_alert": WhaleAlertCollector,
     "dune": SmartMoneyCollector,
+    "firecrawl": FirecrawlVCCollector,
 }
 
 

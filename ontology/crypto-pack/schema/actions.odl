@@ -206,3 +206,11 @@ type LinkExchangeToken @actionType {
   exchange: Exchange! @param
   token: Token! @param
 }
+
+type LinkFundBacksProtocol @actionType {
+  fund: Fund! @param
+  protocol: Protocol! @param
+  round: String @param
+  announcedAt: DateTime @param
+  sourceUrl: URI @param
+}

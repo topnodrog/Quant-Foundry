@@ -63,6 +63,18 @@ def _chain_key(name: str | None) -> str | None:
     return re.sub(r"\s+", "-", name.strip().lower())
 
 
+def _slugify(name: str | None) -> str | None:
+    """Human project name -> a Protocol.slug natural key. Aligns with DefiLlama's
+    lowercase-hyphenated slug style so a VC-backed "Uniswap" unifies onto the same
+    Protocol node DefiLlama registers as "uniswap". Imperfect (won't merge
+    "Uniswap Labs" vs "uniswap"), which is the expected first-cut of PLAN.md §4's
+    hard entity-resolution problem."""
+    if not name:
+        return None
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or None
+
+
 # EVM chain-id -> canonical Chain.key (extend as more chains are collected).
 _EVM_CHAIN_KEYS = {"1": "ethereum"}
 
@@ -306,6 +318,28 @@ def _h_sentiment_post(row):
     })]
 
 
+def _h_vc_portfolio_backing(row):
+    # Firecrawl VC-portfolio rows (PLAN.md §3). The backing itself is the edge
+    # (FundBacksProtocol carries round/announcedAt/sourceUrl), so this only
+    # registers the two endpoint nodes; derive_edges builds the relationship.
+    pl = row["payload"]
+    fund = pl.get("fund_name")
+    company = pl.get("company_name") or row["entity"]
+    slug = _slugify(company)
+    calls: list[ActionCall] = []
+    if fund:
+        calls.append(ActionCall("RegisterFund", {
+            "name": fund, "kind": pl.get("fund_kind") or "VC",
+            "description": pl.get("description"),
+        }, f"Fund:{fund}"))
+    if slug:
+        calls.append(ActionCall("RegisterProtocol", {
+            "slug": slug, "name": company, "category": pl.get("category"),
+            "chainKey": None,
+        }, f"Protocol:{slug}"))
+    return calls
+
+
 def _skip(row):
     return []
 
@@ -327,6 +361,7 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], list[ActionCall]]] = {
     "administrative_proceeding": _h_sec_rss("ADMIN_PROCEEDING"),
     "fear_greed_index": _h_fear_greed_index,
     "sentiment_post": _h_sentiment_post,
+    "vc_portfolio_backing": _h_vc_portfolio_backing,
 }
 
 
@@ -361,6 +396,7 @@ EDGE_ENDPOINT_PARAMS: dict[str, tuple[str, str]] = {
     "LinkTokenChain": ("token", "chain"),
     "LinkProtocolChain": ("protocol", "chain"),
     "LinkExchangeToken": ("exchange", "token"),
+    "LinkFundBacksProtocol": ("fund", "protocol"),
 }
 
 
@@ -397,6 +433,13 @@ def derive_edges(row: dict[str, Any]) -> list[EdgeSpec]:
         if ex and base:
             edges.append(EdgeSpec("LinkExchangeToken", f"Exchange:{ex}", f"Token:{base}"))
 
+    elif st == "vc_portfolio_backing":  # fund backs protocol
+        fund, slug = pl.get("fund_name"), _slugify(pl.get("company_name") or row.get("entity"))
+        if fund and slug:
+            edges.append(EdgeSpec("LinkFundBacksProtocol", f"Fund:{fund}", f"Protocol:{slug}",
+                                  {"round": pl.get("round"), "announcedAt": ts,
+                                   "sourceUrl": pl.get("source_url")}))
+
     return edges
 
 
@@ -421,6 +464,11 @@ def aggregate_edges(specs: list[EdgeSpec]) -> list[EdgeSpec]:
             latest = max(members, key=lambda m: m.props.get("observedAt") or "")
             props = {"amountUsd": latest.props.get("amountUsd"),
                      "observedAt": latest.props.get("observedAt")}
+        elif action == "LinkFundBacksProtocol":
+            latest = max(members, key=lambda m: m.props.get("announcedAt") or "")
+            props = {"round": latest.props.get("round"),
+                     "announcedAt": latest.props.get("announcedAt"),
+                     "sourceUrl": latest.props.get("sourceUrl")}
         else:
             props = {}
         out.append(EdgeSpec(action, fk, tk, props))

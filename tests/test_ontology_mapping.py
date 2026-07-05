@@ -12,7 +12,12 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from quiverquant.ontology.mapping import ActionCall, map_row  # noqa: E402
+from quiverquant.ontology.mapping import (  # noqa: E402
+    ActionCall,
+    aggregate_edges,
+    derive_edges,
+    map_row,
+)
 
 TS = datetime(2026, 7, 3, 4, 7, 35, tzinfo=timezone.utc)
 
@@ -112,6 +117,58 @@ def test_sec_rss_kinds_and_fulltext():
     assert ftp["kind"] == "FULLTEXT_MATCH"
     assert ftp["title"] == "Foo (CIK 0001)"
     assert ftp["publishedAt"] == "2025-02-27T00:00:00Z"
+
+
+def _vc_row(fund: str, company: str, **pl) -> dict:
+    return {
+        "source": "firecrawl", "signal_type": "vc_portfolio_backing",
+        "entity": company, "ts": TS, "tier": "free",
+        "payload": {"fund_name": fund, "fund_kind": "VC", "company_name": company,
+                    "category": pl.get("category"), "source_url": pl.get("url"),
+                    "round": pl.get("round")},
+    }
+
+
+def test_vc_backing_registers_fund_and_protocol():
+    row = _vc_row("a16z crypto", "Uniswap Labs", category="DeFi",
+                  url="https://a16zcrypto.com/portfolio/")
+    calls = _by_action(map_row(row))
+    assert calls["RegisterFund"].params["name"] == "a16z crypto"
+    assert calls["RegisterFund"].params["kind"] == "VC"
+    proto = calls["RegisterProtocol"].params
+    assert proto["slug"] == "uniswap-labs"      # slugified natural key
+    assert proto["name"] == "Uniswap Labs" and proto["category"] == "DeFi"
+
+
+def test_vc_backing_derives_fund_backs_protocol_edge():
+    row = _vc_row("Paradigm", "Uniswap", url="https://www.paradigm.xyz/portfolio")
+    edges = aggregate_edges(derive_edges(row))
+    assert len(edges) == 1
+    e = edges[0]
+    assert e.action == "LinkFundBacksProtocol"
+    assert e.from_key == "Fund:Paradigm" and e.to_key == "Protocol:uniswap"
+    assert e.props["sourceUrl"] == "https://www.paradigm.xyz/portfolio"
+    assert e.props["announcedAt"].endswith("Z")
+
+
+def test_vc_backing_slug_unifies_with_defillama():
+    # A VC-backed "Uniswap" and DefiLlama's "uniswap" protocol resolve to the
+    # same Protocol dedupe_key, so the migrator links onto one shared node.
+    vc = map_row(_vc_row("Pantera Capital", "Uniswap"))
+    vc_proto = _by_action(vc)["RegisterProtocol"]
+    assert vc_proto.dedupe_key == "Protocol:uniswap"
+
+
+def test_vc_backing_edges_dedupe_across_funds():
+    # Two funds backing the same project -> two distinct edges; same fund listing
+    # the project twice -> one edge.
+    rows = [_vc_row("a16z crypto", "Uniswap"), _vc_row("Paradigm", "Uniswap"),
+            _vc_row("a16z crypto", "Uniswap")]
+    specs = [s for r in rows for s in derive_edges(r)]
+    edges = aggregate_edges(specs)
+    pairs = {(e.from_key, e.to_key) for e in edges}
+    assert pairs == {("Fund:a16z crypto", "Protocol:uniswap"),
+                     ("Fund:Paradigm", "Protocol:uniswap")}
 
 
 def test_unmapped_types_yield_nothing():
