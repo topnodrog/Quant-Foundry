@@ -65,6 +65,14 @@ def main() -> None:
         # Path 1A: map VC-backed company names to tradeable CoinGecko tokens.
         raise SystemExit(_resolve_tokens_cli(argv[1:]))
 
+    if argv and argv[0] == "collect-prices":
+        # Path 1B: daily price history for the resolved tokens (CoinGecko).
+        raise SystemExit(_collect_prices_cli(argv[1:]))
+
+    if argv and argv[0] == "cross-section":
+        # Path 1C: cross-sectional VC-conviction long book (survivorship-biased).
+        raise SystemExit(_cross_section_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -288,6 +296,43 @@ def _resolve_tokens_cli(args: list[str]) -> int:
     resolutions = build_map(top_n=ns.top)
     print_map(resolutions, total_companies=total)
     print(f"\n  cached {len(resolutions)} rows to vc_token_map")
+    return 0
+
+
+def _collect_prices_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.token_prices import collect_all, coverage_summary
+
+    parser = argparse.ArgumentParser(prog="quiverquant collect-prices")
+    parser.add_argument("--pause", type=float, default=6.0, help="seconds between CoinGecko calls")
+    parser.add_argument("--days", default="max", help="history window (CoinGecko 'days' param)")
+    ns = parser.parse_args(args)
+
+    result = collect_all(pause=ns.pause, days=ns.days)
+    total = sum(result.values())
+    got = sum(1 for n in result.values() if n > 0)
+    print(f"\ncollected {total} daily price rows across {got}/{len(result)} tokens")
+    print("coverage (token / days / first / last):")
+    for gid, n, first, last in coverage_summary():
+        print(f"  {gid:28} {n:5}  {first}  {last}")
+    return 0
+
+
+def _cross_section_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.cross_section import print_report, run_cross_section
+
+    parser = argparse.ArgumentParser(prog="quiverquant cross-section")
+    parser.add_argument("--min-funds", type=int, default=2, help="conviction threshold (distinct backers)")
+    parser.add_argument("--permutations", type=int, default=500, help="random-subset null draws")
+    parser.add_argument("--seed", type=int, default=42)
+    ns = parser.parse_args(args)
+
+    print_report(run_cross_section(
+        min_funds=ns.min_funds, n_permutations=ns.permutations, seed=ns.seed
+    ))
     return 0
 
 
