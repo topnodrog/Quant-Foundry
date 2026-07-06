@@ -314,11 +314,20 @@ ever gets there.
     series; and a `news-impact` event study — the biggest BTC crashes coincide with bearish news,
     e.g. FTX week, but sentiment sign predicts direction only ~coin-flip.)
 
-  **Gate scoreboard — 4 candidates, none qualify (all fail significance p≤0.05):** F&G 1/4 folds
-  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15. The gates are doing their job:
-  every candidate that looked good in-sample (e.g. news +152%, dev +175%) was cut down out-of-sample
-  or by the shuffled-signal null. No single free signal has shown a durable, statistically-significant
-  BTC-timing edge.
+  - *Candidate 5 — four-signal consensus ensemble (`ensemble`):* each signal votes bullish from its
+    own rule (F&G fear, TVL momentum, dev momentum, news capitulation); hold BTC while ≥ `min_votes`
+    agree, only that knob tuned. Weakest yet — walk-forward picked `votes≥1` every fold, degenerating
+    to ~buy-&-hold (OOS +11%, 1/4 beat B&H); significance p = 0.55 (below the median of the
+    shuffle-all-four-inputs null). Combining the weak signals produced no edge.
+
+  **Gate scoreboard — 5 candidates, NONE qualify (all fail significance p≤0.05):** F&G 1/4 folds
+  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 (closest) · news 3/4 p=0.15 · ensemble 1/4 p=0.55.
+  The gates are doing their job: every candidate that looked good in-sample (news +152%, dev +175%,
+  ensemble +181%) was cut down out-of-sample or by the shuffled-signal null. **No single free signal,
+  nor their consensus, shows a durable statistically-significant BTC daily-timing edge on 2022-2026.**
+  The honest read is that free-data BTC market-timing may simply not carry a detectable edge at this
+  cadence — future work should either change the target (cross-sectional alt book, longer horizon) or
+  accumulate the finer forward series (news feed) before re-testing, not keep tuning daily BTC timing.
 
   **Lever #2 (graph features) built (`features/graph.py`, `quiverquant graph-features`):** VC
   conviction (projects backed by ≥2 distinct funds) + fund co-investment overlap from the

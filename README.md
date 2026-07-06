@@ -172,9 +172,20 @@ uv run quiverquant wayback-vc --extract           # Path 2: point-in-time VC por
     "wins" are drawdown-avoidance and it missed a +55% up fold entirely; permutation
     **p = 0.15** — not distinguishable from shuffled sentiment. A drawdown-avoider, not
     a proven edge.
-  - Scoreboard (all fail significance p≤0.05): F&G 1/4 folds p=0.40 · regime 1/4 p=0.16
-    · dev 2/4 p=0.09 · news 3/4 p=0.15. A forward crypto-news feed
-    (`quiverquant perigon`, Windows-scheduled daily) is accumulating a finer series.
+  - **Candidate 5 — four-signal consensus ensemble (`--strategy news`… `ensemble`) —
+    weakest of all:** each signal votes bullish from its own rule; hold BTC while ≥
+    `min_votes` agree (only that knob is tuned). Walk-forward picked `votes≥1` every
+    fold → degenerates to ~buy-&-hold (compounded OOS +11%, 1/4 beat B&H); stricter
+    consensus churns. Significance **p = 0.55** — 109/200 shuffled-input versions beat
+    it, i.e. below the *median* of noise. Combining the weak signals produced no edge.
+  - **Final scoreboard — 5 candidates, none qualify** (all fail significance p≤0.05):
+    F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=**0.09** (closest) · news 3/4
+    p=0.15 · ensemble 1/4 p=0.55. **No single free signal, nor their consensus, shows a
+    statistically-significant BTC daily-timing edge on 2022-2026** — the framework cut
+    down every in-sample winner (news +152%, dev +175%, ensemble +181%) out-of-sample
+    or against the shuffled-signal null, rather than shipping an overfit strategy. A
+    forward crypto-news feed (`quiverquant perigon`, Windows-scheduled daily) accumulates
+    a finer series for future re-tests.
   - **Graph-derived VC-conviction features (`uv run quiverquant graph-features`)** —
     lever #2 from the Open Foundry research, built as `features/graph.py`: computes
     VC conviction (projects backed by ≥2 distinct funds) and fund co-investment
