@@ -56,6 +56,11 @@ def main() -> None:
         # Phase 4: permutation test (§6 step 3) — does the signal beat shuffled noise?
         raise SystemExit(_significance_cli(argv[1:]))
 
+    if argv and argv[0] == "graph-features":
+        # Lever #2: derived VC-conviction / co-investment features from the
+        # FundBacksProtocol ontology edges (research/open-foundry-strategic-advantage.md).
+        raise SystemExit(_graph_features_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -178,8 +183,9 @@ def _walkforward_cli(args: list[str]) -> int:
     from quiverquant.backtest.walkforward import print_report, walk_forward
 
     parser = argparse.ArgumentParser(prog="quiverquant walkforward")
-    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime"],
-                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate")
+    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime", "dev"],
+                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate; "
+                             "dev = developer-activity momentum")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -211,8 +217,9 @@ def _significance_cli(args: list[str]) -> int:
     from quiverquant.backtest.significance import permutation_test, print_report
 
     parser = argparse.ArgumentParser(prog="quiverquant significance")
-    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime"],
-                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate")
+    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime", "dev"],
+                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate; "
+                             "dev = developer-activity momentum")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -221,6 +228,7 @@ def _significance_cli(args: list[str]) -> int:
     parser.add_argument("--fear", type=int, default=30, help="fear entry threshold")
     parser.add_argument("--greed", type=int, default=70, help="greed exit threshold")
     parser.add_argument("--tvl-ma-window", type=int, default=30, help="days for the TVL moving average (regime)")
+    parser.add_argument("--dev-ma-window", type=int, default=8, help="weeks for the dev-activity moving average (dev)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
@@ -231,6 +239,7 @@ def _significance_cli(args: list[str]) -> int:
         fear_threshold=ns.fear,
         greed_threshold=ns.greed,
         tvl_ma_window=ns.tvl_ma_window,
+        dev_ma_window=ns.dev_ma_window,
         seed=ns.seed,
         starting_balance=ns.balance,
         exchange=ns.exchange,
@@ -239,6 +248,25 @@ def _significance_cli(args: list[str]) -> int:
         days=ns.days,
     )
     print_report(report)
+    return 0
+
+
+def _graph_features_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.graph import compute_summary, print_summary, read_backings
+
+    parser = argparse.ArgumentParser(prog="quiverquant graph-features")
+    parser.add_argument("--min-funds", type=int, default=2,
+                        help="min distinct backers for the conviction list")
+    parser.add_argument("--limit", type=int, default=20, help="rows per section")
+    ns = parser.parse_args(args)
+
+    backings = read_backings()
+    if not backings:
+        print("no vc_portfolio_backing rows found — run `quiverquant firecrawl` first")
+        return 1
+    print_summary(compute_summary(backings, min_funds=ns.min_funds), limit=ns.limit)
     return 0
 
 

@@ -60,6 +60,9 @@ edge, not a guarantee.
     (anchored walk-forward), `significance.py` (permutation test)
   - `backfill/` — Phase 3 historical backfills that turn point-in-time collectors
     into real time series (`defillama_tvl.py`; Fear & Greed reuses its collector)
+  - `features/` — derived graph features over the ontology edges (`graph.py`:
+    VC conviction + fund co-investment from `FundBacksProtocol`), lever #2 of
+    `research/open-foundry-strategic-advantage.md`
 - `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
 - `deploy/` — how to stand up Open Foundry with the crypto pack mounted
 - `.env.example` — every API key a collector can use, and which sources need none
@@ -78,8 +81,9 @@ uv run quiverquant backtest --strategy regime    # Phase 4: + DeFi-TVL momentum 
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
-uv run quiverquant walkforward --strategy regime --splits 4   # Phase 4: anchored walk-forward (out-of-sample)
-uv run quiverquant significance --strategy regime --permutations 200  # Phase 4: shuffled-signal permutation test
+uv run quiverquant walkforward --strategy dev --splits 4      # Phase 4: anchored walk-forward (sentiment|regime|dev)
+uv run quiverquant significance --strategy dev --permutations 200  # Phase 4: shuffled-signal permutation test
+uv run quiverquant graph-features                # Lever #2: VC-conviction / co-investment from FundBacksProtocol edges
 ```
 
 ## Collector status (2026-07-03)
@@ -140,7 +144,23 @@ uv run quiverquant significance --strategy regime --permutations 200  # Phase 4:
     compounded OOS rises to -20%, and the permutation p-value tightens to 0.16
     (vs 0.40). The gate adds real, measurable value, but not enough to clear
     p≤0.05. Back to revision per §6.
-  - Next: stronger/independent signals (graph-derived VC-conviction features per
-    `research/open-foundry-strategic-advantage.md`, dev-activity) and/or a
-    different asset universe; then paper trade a candidate that passes.
+  - **Candidate 3 — developer-activity momentum (`--strategy dev`) — the
+    strongest yet, still short of the bar:** long BTC while market-wide weekly
+    commit volume (bitcoin/ethereum/solana/reth) is above its moving average — an
+    independent signal from price and sentiment. Out-of-sample it is the first
+    candidate to be *positive* (compounded OOS +11%, 3/4 folds positive, **2/4
+    beat buy-&-hold**), and at the walk-forward-selected 26-week MA the full-window
+    +175% has a permutation p ≈ 0.09. But it's highly window-sensitive (a naive
+    8-week MA overtrades to p ≈ 0.90, *worse* than noise), and testing significance
+    at the tuned window is mildly optimistic — so "promising, not qualified."
+  - **Graph-derived VC-conviction features (`uv run quiverquant graph-features`)** —
+    lever #2 from the Open Foundry research, built as `features/graph.py`: computes
+    VC conviction (projects backed by ≥2 distinct funds) and fund co-investment
+    overlap from the `FundBacksProtocol` edges. Real output (15 projects co-backed
+    by a16z + Paradigm: Uniswap, Coinbase, Lido, Optimism, dYdX…). **Cross-sectional
+    as of the last scrape, so it does not yet feed the market-timing gates** — it's a
+    screening signal until we add per-project token prices (a cross-sectional book)
+    or accumulate temporal backing history.
+  - Next: enrich VC coverage (more funds) + collect per-token OHLCV to backtest a
+    cross-sectional VC-conviction long book; then paper trade a candidate that passes.
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

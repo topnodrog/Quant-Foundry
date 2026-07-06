@@ -29,7 +29,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from quiverquant.backtest.data import FearGreedData
+from quiverquant.backtest.data import DevActivityData, FearGreedData
 from quiverquant.backtest.harness import Dataset, load_dataset, run_window
 
 
@@ -85,6 +85,22 @@ def _shuffle_values(fg: list[FearGreedData], rng: random.Random) -> list[FearGre
     ]
 
 
+def _shuffle_dev(dev: list[DevActivityData], rng: random.Random) -> list[DevActivityData]:
+    """Dev-activity analogue of ``_shuffle_values``: same timestamps, commit counts
+    permuted across them (breaks builder-momentum->price alignment)."""
+    order = list(range(len(dev)))
+    rng.shuffle(order)
+    return [
+        DevActivityData(
+            ts_event=dev[i].ts_event,
+            ts_init=dev[i].ts_init,
+            total_commits=dev[j].total_commits,
+            repo_count=dev[j].repo_count,
+        )
+        for i, j in enumerate(order)
+    ]
+
+
 def permutation_test(
     dataset: Dataset | None = None,
     *,
@@ -93,16 +109,19 @@ def permutation_test(
     fear_threshold: int = 30,
     greed_threshold: int = 70,
     tvl_ma_window: int = 30,
+    dev_ma_window: int = 8,
     starting_balance: float = 100_000.0,
     seed: int = 42,
     progress: bool = True,
     **load_kwargs,
 ) -> SignificanceReport:
-    """Permutation-test a contrarian strategy against shuffled Fear & Greed signals.
+    """Permutation-test a strategy against a shuffled version of its primary signal.
 
-    Only Fear & Greed is shuffled; when ``strategy='regime'`` the TVL series stays
-    intact, so the null becomes the stricter "does the TVL regime gate add value
-    on top of a *noise* sentiment signal?" — a clean test of the added lever.
+    The signal the strategy keys on is shuffled (Fear & Greed for
+    ``sentiment``/``regime``, dev-activity for ``dev``); any secondary series stays
+    intact. So for ``regime`` the null is the stricter "does the TVL gate add value
+    on top of a *noise* sentiment signal?", and for ``dev`` it is "does builder
+    momentum beat a shuffled commit series?".
     """
     if n_permutations < 1:
         raise ValueError("n_permutations must be >= 1")
@@ -112,21 +131,27 @@ def permutation_test(
     if not dataset.bars:
         raise ValueError("no price bars loaded")
 
-    actual = run_window(
-        dataset, dataset.bars, dataset.fg, dataset.tvl,
-        strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
-        tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
-    )
+    is_dev = strategy == "dev"
+    # Attach only the streams a strategy uses: sentiment=fg, regime=fg+tvl, dev=dev.
+    tvl_stream = dataset.tvl if strategy == "regime" else None
+
+    def _run(fg_series, dev_series):
+        return run_window(
+            dataset, dataset.bars, fg_series, tvl_stream, dev_series,
+            strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
+            tvl_ma_window=tvl_ma_window, dev_ma_window=dev_ma_window,
+            starting_balance=starting_balance,
+        )
+
+    actual = _run([], dataset.dev) if is_dev else _run(dataset.fg, None)
 
     rng = random.Random(seed)
     permuted: list[float] = []
     for k in range(n_permutations):
-        shuffled = _shuffle_values(dataset.fg, rng)
-        r = run_window(
-            dataset, dataset.bars, shuffled, dataset.tvl,
-            strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
-            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
-        )
+        if is_dev:
+            r = _run([], _shuffle_dev(dataset.dev, rng))
+        else:
+            r = _run(_shuffle_values(dataset.fg, rng), None)
         permuted.append(r.strategy_return_pct if r.strategy_return_pct is not None else 0.0)
         if progress and (k + 1) % 20 == 0:
             print(f"  [significance] {k + 1}/{n_permutations} permutations...")
@@ -143,6 +168,7 @@ def permutation_test(
 _STRATEGY_LABEL = {
     "sentiment": "Fear & Greed contrarian",
     "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
+    "dev": "Developer-activity momentum",
 }
 
 

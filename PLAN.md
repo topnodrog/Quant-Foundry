@@ -296,11 +296,25 @@ ever gets there.
     in-sample full-window return to +171% and improves *both* gates — compounded OOS -20% (still 1/4
     folds beat buy-&-hold) and permutation p tightens to 0.16 — so the regime lever adds real,
     measurable value, but not enough to clear p≤0.05. Still fails §6.
+  - *Candidate 3 — developer-activity momentum (`dev`):* an independent signal (long BTC while
+    market-wide weekly commits across bitcoin/ethereum/solana/reth are above their MA). The harness
+    was generalised to a strategy-agnostic param-dict grid to run it. **Strongest candidate yet:**
+    first to be OOS-positive (compounded +11%, 3/4 folds positive, 2/4 beat buy-&-hold), and at the
+    walk-forward-selected 26-week MA the full-window +175% has permutation p ≈ 0.09. But it is very
+    window-sensitive (an 8-week MA overtrades to p ≈ 0.90, worse than noise), and scoring
+    significance at the tuned window is mildly optimistic — verdict "promising, not qualified."
 
-  Per §6 both go back for revision — next levers: graph-derived VC-conviction features
-  (`research/open-foundry-strategic-advantage.md`), dev-activity, or a broader asset universe.
-  **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest
-  Computer simulation mode, once a candidate clears these two gates.
+  **Lever #2 (graph features) built (`features/graph.py`, `quiverquant graph-features`):** VC
+  conviction (projects backed by ≥2 distinct funds) + fund co-investment overlap from the
+  `FundBacksProtocol` edges — 15 projects co-backed by a16z + Paradigm (Uniswap/Coinbase/Lido/…).
+  It is cross-sectional as of the last scrape, so it does NOT yet feed the market-timing gates; it
+  becomes tradeable via a cross-sectional long book (needs per-token OHLCV) or once repeated scrapes
+  accumulate temporal backing history. See `research/open-foundry-strategic-advantage.md`.
+
+  Per §6 all three go back for revision — next levers: enrich VC coverage + per-token OHLCV for a
+  cross-sectional VC-conviction book, and the point-in-time feature store (lever #1). **Not yet
+  done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer
+  simulation mode, once a candidate clears these two gates.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
   thresholds (§6 step 5), independently verify Liquid's legal standing or finalize direct
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by

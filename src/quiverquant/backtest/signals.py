@@ -30,6 +30,16 @@ class TvlTotalPoint:
 
 
 @dataclass(frozen=True)
+class DevTotalPoint:
+    """Market-wide developer activity for one ISO week (commits summed across the
+    tracked core repos). ``ts`` is tz-aware UTC (week start)."""
+
+    ts: datetime
+    total_commits: int
+    repo_count: int
+
+
+@dataclass(frozen=True)
 class SignalPoint:
     """One observation in a signal series. ``ts`` is tz-aware UTC."""
 
@@ -106,4 +116,40 @@ def read_daily_tvl_total(
     for day, total, n in rows:
         ts = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
         out.append(TvlTotalPoint(ts=ts, total_usd=float(total or 0.0), protocol_count=int(n)))
+    return out
+
+
+def read_weekly_dev_total(
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[DevTotalPoint]:
+    """Sum ``dev_activity_history`` commits across all tracked repos per week into
+    one market-wide "builder activity" series — a shipping-momentum proxy. Rows
+    are weekly (one per repo per ISO week); ordered by week.
+    """
+    q = (
+        "SELECT CAST(ts AS DATE) AS d, "
+        "SUM(CAST(payload->>'$.commits' AS BIGINT)) AS total, "
+        "COUNT(DISTINCT entity) AS n "
+        "FROM raw_signals WHERE signal_type = 'dev_activity_history'"
+    )
+    params: list[object] = []
+    if start is not None:
+        q += " AND ts >= ?"
+        params.append(start.replace(tzinfo=None))
+    if end is not None:
+        q += " AND ts < ?"
+        params.append(end.replace(tzinfo=None))
+    q += " GROUP BY 1 ORDER BY 1"
+
+    con = get_connection()
+    try:
+        rows = con.execute(q, params).fetchall()
+    finally:
+        con.close()
+
+    out: list[DevTotalPoint] = []
+    for day, total, n in rows:
+        ts = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        out.append(DevTotalPoint(ts=ts, total_commits=int(total or 0), repo_count=int(n)))
     return out

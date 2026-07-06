@@ -25,7 +25,7 @@ from nautilus_trader.model.enums import OrderSide
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.trading.strategy import Strategy
 
-from quiverquant.backtest.data import FearGreedData, TvlData
+from quiverquant.backtest.data import DevActivityData, FearGreedData, TvlData
 
 
 class FearGreedContrarianConfig(StrategyConfig, frozen=True):
@@ -137,5 +137,57 @@ class RegimeContrarianStrategy(FearGreedContrarianStrategy):
         if self.latest_fg <= self.config.fear_threshold and not is_long:
             self._enter_long(bar)
         elif self.latest_fg >= self.config.greed_threshold and is_long and not self._tvl_rising():
+            self.close_all_positions(self.config.instrument_id)
+            self.exits += 1
+
+
+class DevMomentumConfig(FearGreedContrarianConfig, frozen=True):
+    """Developer-activity momentum. Inherits the long/flat plumbing config;
+    ``fear_threshold``/``greed_threshold`` are unused (this strategy keys on dev
+    activity, not sentiment)."""
+
+    dev_ma_window: int = 8  # ISO weeks for the builder-activity moving average
+
+
+class DevMomentumStrategy(FearGreedContrarianStrategy):
+    """Trend-follow developer activity: go long BTC while market-wide weekly commit
+    volume across the tracked core repos is **above** its moving average (builders
+    shipping = risk-on), flat otherwise. A genuinely independent signal from price
+    and sentiment — the third real multi-year series we have (PLAN §9).
+
+    Reuses the base long/flat entry (`_enter_long`) and counters; overrides the
+    subscription and decision logic to key on ``DevActivityData`` instead of
+    Fear & Greed.
+    """
+
+    def __init__(self, config: DevMomentumConfig) -> None:
+        super().__init__(config)
+        self.latest_dev: int | None = None
+        self._dev_window: deque[int] = deque(maxlen=config.dev_ma_window)
+
+    def on_start(self) -> None:
+        self.instrument = self.cache.instrument(self.config.instrument_id)
+        self.subscribe_bars(self.config.bar_type)
+        self.subscribe_data(DataType(DevActivityData))
+
+    def on_data(self, data) -> None:  # noqa: ANN001 - nautilus Data
+        if isinstance(data, DevActivityData):
+            self.latest_dev = data.total_commits
+            self._dev_window.append(data.total_commits)
+
+    def _dev_rising(self) -> bool:
+        if self.latest_dev is None or len(self._dev_window) < self._dev_window.maxlen:
+            return False
+        ma = sum(self._dev_window) / len(self._dev_window)
+        return self.latest_dev >= ma
+
+    def on_bar(self, bar) -> None:  # noqa: ANN001 - nautilus Bar
+        if self.instrument is None:
+            return
+        is_long = self.portfolio.net_position(self.config.instrument_id) > 0
+        rising = self._dev_rising()
+        if rising and not is_long:
+            self._enter_long(bar)
+        elif not rising and is_long:
             self.close_all_positions(self.config.instrument_id)
             self.exits += 1

@@ -30,6 +30,7 @@ from quiverquant.backtest.harness import (
     load_dataset,
     run_window,
     slice_bars,
+    slice_dev,
     slice_fg,
     slice_tvl,
     time_bounds,
@@ -40,23 +41,41 @@ from quiverquant.backtest.harness import (
 # walk-forward exists to expose.
 DEFAULT_FEARS = (20, 25, 30, 35)
 DEFAULT_GREEDS = (60, 65, 70, 75, 80)
+DEFAULT_DEV_WINDOWS = (4, 8, 13, 26)  # ISO weeks for the dev-activity moving average
 
 
 @dataclass(frozen=True)
 class Fold:
-    """One walk-forward fold: chosen params + their out-of-sample scorecard."""
+    """One walk-forward fold: chosen params + their out-of-sample scorecard.
+
+    ``params`` are the ``run_window`` kwargs of the winning in-sample config;
+    ``param_label`` is a compact human rendering (e.g. ``F30/G70`` or ``MA8w``).
+    """
 
     index: int
     train_bars: int
-    best_fear: int
-    best_greed: int
+    params: dict
+    param_label: str
     in_sample_excess_pct: float | None
     test: WindowResult
 
 
-def _grid(fears, greeds) -> list[tuple[int, int]]:
-    """Valid (fear, greed) pairs — fear strictly below greed."""
-    return [(f, g) for f in fears for g in greeds if f < g]
+def _param_grid(strategy: str, fears, greeds, dev_windows) -> list[dict]:
+    """In-sample search grid as ``run_window`` kwargs, per strategy."""
+    if strategy == "dev":
+        return [{"dev_ma_window": w} for w in dev_windows]
+    # sentiment / regime tune the sentiment thresholds; regime also gets a fixed
+    # tvl_ma_window from the caller (not searched, to keep the grid small).
+    return [
+        {"fear_threshold": f, "greed_threshold": g}
+        for f in fears for g in greeds if f < g
+    ]
+
+
+def _param_label(params: dict) -> str:
+    if "dev_ma_window" in params:
+        return f"MA{params['dev_ma_window']}w"
+    return f"F{params.get('fear_threshold')}/G{params.get('greed_threshold')}"
 
 
 def _best_params(
@@ -64,27 +83,29 @@ def _best_params(
     train_bars: list,
     train_fg,
     train_tvl,
-    grid: list[tuple[int, int]],
+    train_dev,
+    grid: list[dict],
     starting_balance: float,
     strategy: str,
     tvl_ma_window: int,
-) -> tuple[int, int, float | None]:
-    """Pick the (fear, greed) pair with the highest in-sample excess-over-buy&hold."""
-    best: tuple[int, int, float | None] = (grid[0][0], grid[0][1], None)
+) -> tuple[dict, float | None]:
+    """Pick the grid config with the highest in-sample excess-over-buy&hold."""
+    best_params: dict = dict(grid[0])
+    best_excess: float | None = None
     best_score = float("-inf")
-    for fear, greed in grid:
+    for params in grid:
         r = run_window(
-            dataset, train_bars, train_fg, train_tvl,
-            strategy=strategy, fear_threshold=fear, greed_threshold=greed,
-            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
+            dataset, train_bars, train_fg, train_tvl, train_dev,
+            strategy=strategy, tvl_ma_window=tvl_ma_window,
+            starting_balance=starting_balance, **params,
         )
         score = r.excess_pct
         if score is None:
             continue
         if score > best_score:
             best_score = score
-            best = (fear, greed, score)
-    return best
+            best_params, best_excess = dict(params), score
+    return best_params, best_excess
 
 
 @dataclass(frozen=True)
@@ -129,13 +150,15 @@ def walk_forward(
     train_frac: float = 0.4,
     fears=DEFAULT_FEARS,
     greeds=DEFAULT_GREEDS,
+    dev_windows=DEFAULT_DEV_WINDOWS,
     strategy: str = "sentiment",
     tvl_ma_window: int = 30,
     starting_balance: float = 100_000.0,
     **load_kwargs,
 ) -> WalkForwardReport:
     """Run anchored walk-forward validation. ``strategy`` = ``sentiment`` (Fear &
-    Greed only) or ``regime`` (adds the TVL-momentum exit gate)."""
+    Greed only), ``regime`` (adds the TVL-momentum exit gate), or ``dev``
+    (developer-activity momentum)."""
     if not 0 < train_frac < 1:
         raise ValueError("train_frac must be in (0, 1)")
     if n_splits < 1:
@@ -146,9 +169,9 @@ def walk_forward(
     if not dataset.bars:
         raise ValueError("no price bars loaded")
 
-    grid = _grid(fears, greeds)
+    grid = _param_grid(strategy, fears, greeds, dev_windows)
     if not grid:
-        raise ValueError("empty threshold grid (need at least one fear < greed pair)")
+        raise ValueError("empty search grid")
 
     ts0, ts_end = time_bounds(dataset.bars)
     span = ts_end - ts0
@@ -163,28 +186,30 @@ def walk_forward(
         train_bars = slice_bars(dataset.bars, ts0, test_start)
         train_fg = slice_fg(dataset.fg, ts0, test_start)
         train_tvl = slice_tvl(dataset.tvl, ts0, test_start)
+        train_dev = slice_dev(dataset.dev, ts0, test_start)
         # Signal history predates price bars, so include all points up to the test
-        # window (they warm up latest_fg / the TVL moving average before the first
-        # test bar).
+        # window (they warm up latest_fg / the TVL/dev moving averages before the
+        # first test bar).
         test_bars = slice_bars(dataset.bars, test_start, test_end)
         test_fg = slice_fg(dataset.fg, ts0, test_end)
         test_tvl = slice_tvl(dataset.tvl, ts0, test_end)
+        test_dev = slice_dev(dataset.dev, ts0, test_end)
 
-        fear, greed, is_excess = _best_params(
-            dataset, train_bars, train_fg, train_tvl, grid,
+        best_params, is_excess = _best_params(
+            dataset, train_bars, train_fg, train_tvl, train_dev, grid,
             starting_balance, strategy, tvl_ma_window,
         )
         test_result = run_window(
-            dataset, test_bars, test_fg, test_tvl,
-            strategy=strategy, fear_threshold=fear, greed_threshold=greed,
-            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
+            dataset, test_bars, test_fg, test_tvl, test_dev,
+            strategy=strategy, tvl_ma_window=tvl_ma_window,
+            starting_balance=starting_balance, **best_params,
         )
         folds.append(
             Fold(
                 index=i,
                 train_bars=len(train_bars),
-                best_fear=fear,
-                best_greed=greed,
+                params=best_params,
+                param_label=_param_label(best_params),
                 in_sample_excess_pct=is_excess,
                 test=test_result,
             )
@@ -198,6 +223,7 @@ def walk_forward(
 _STRATEGY_LABEL = {
     "sentiment": "Fear & Greed contrarian",
     "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
+    "dev": "Developer-activity momentum",
 }
 
 
@@ -208,8 +234,7 @@ def print_report(report: WalkForwardReport) -> None:
           f"{'oos_ret%':>9} {'buyhold%':>9} {'excess%':>8}")
     for f in report.folds:
         t = f.test
-        params = f"F{f.best_fear}/G{f.best_greed}"
-        print(f"  {f.index:>4} {f.train_bars:>10} {params:>12} {t.n_bars:>9} "
+        print(f"  {f.index:>4} {f.train_bars:>10} {f.param_label:>12} {t.n_bars:>9} "
               f"{_fmt(t.strategy_return_pct):>9} {_fmt(t.buy_hold_return_pct):>9} {_fmt(t.excess_pct):>8}")
 
     n = len(report.folds)

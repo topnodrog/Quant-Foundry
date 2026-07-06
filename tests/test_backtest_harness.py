@@ -30,7 +30,8 @@ from quiverquant.backtest.significance import (  # noqa: E402
 from quiverquant.backtest.walkforward import (  # noqa: E402
     Fold,
     WalkForwardReport,
-    _grid,
+    _param_grid,
+    _param_label,
 )
 
 
@@ -85,16 +86,35 @@ def test_regime_config_inherits_and_adds_window():
 
 # --- grid -----------------------------------------------------------------
 
-def test_grid_only_keeps_fear_below_greed():
-    grid = _grid((20, 70), (30, 60))
-    assert grid == [(20, 30), (20, 60)]  # 70>30, 70>60 dropped; 20<30, 20<60 kept
+def test_sentiment_grid_only_keeps_fear_below_greed():
+    grid = _param_grid("sentiment", (20, 70), (30, 60), (8,))
+    assert grid == [
+        {"fear_threshold": 20, "greed_threshold": 30},
+        {"fear_threshold": 20, "greed_threshold": 60},
+    ]  # 70>30, 70>60 dropped
 
 
-def test_grid_default_nonempty():
-    from quiverquant.backtest.walkforward import DEFAULT_FEARS, DEFAULT_GREEDS
+def test_dev_grid_is_over_ma_windows():
+    grid = _param_grid("dev", (20,), (60,), (4, 8, 13))
+    assert grid == [{"dev_ma_window": 4}, {"dev_ma_window": 8}, {"dev_ma_window": 13}]
 
-    grid = _grid(DEFAULT_FEARS, DEFAULT_GREEDS)
-    assert grid and all(f < g for f, g in grid)
+
+def test_default_grid_nonempty():
+    from quiverquant.backtest.walkforward import (
+        DEFAULT_DEV_WINDOWS,
+        DEFAULT_FEARS,
+        DEFAULT_GREEDS,
+    )
+
+    sg = _param_grid("sentiment", DEFAULT_FEARS, DEFAULT_GREEDS, DEFAULT_DEV_WINDOWS)
+    dg = _param_grid("dev", DEFAULT_FEARS, DEFAULT_GREEDS, DEFAULT_DEV_WINDOWS)
+    assert sg and all(p["fear_threshold"] < p["greed_threshold"] for p in sg)
+    assert dg and all("dev_ma_window" in p for p in dg)
+
+
+def test_param_label_renders_each_strategy():
+    assert _param_label({"fear_threshold": 30, "greed_threshold": 70}) == "F30/G70"
+    assert _param_label({"dev_ma_window": 8}) == "MA8w"
 
 
 # --- permutation shuffle --------------------------------------------------
@@ -144,8 +164,8 @@ def test_window_excess_pct_none_when_missing():
 
 def _fold(i: int, strat: float, bh: float) -> Fold:
     return Fold(
-        index=i, train_bars=100, best_fear=30, best_greed=70,
-        in_sample_excess_pct=1.0,
+        index=i, train_bars=100, params={"fear_threshold": 30, "greed_threshold": 70},
+        param_label="F30/G70", in_sample_excess_pct=1.0,
         test=WindowResult(
             start_ns=0, end_ns=1, n_bars=10, fear_threshold=30, greed_threshold=70,
             entries=1, exits=1, net_worth=0.0,
