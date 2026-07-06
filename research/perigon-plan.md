@@ -64,9 +64,21 @@ portfolio scrape lacks. A handful of targeted queries (`"a16z crypto" Series`,
 That's a ~45-call one-time spend and ~4/month ongoing — comfortably inside 150/month
 with large headroom. **Do not** wire Perigon into any per-token or per-day loop.
 
-## Status
+## Status (probe run 2026-07-06 — key verified)
 
-Key plumbing is in (`PERIGON_API_KEY` in config/.env/.env.example; client +
-`perigon-probe` in `collectors/perigon.py`). Next action for the user: paste the key
-into `.env`, run `quiverquant perigon-probe`, and we branch on the lookback result.
-The response shape is parsed defensively and will be confirmed against that first call.
+Key works. **History reaches 2022** (backfill viable); a 1-month window reports
+`numResults` capped at **10000**; articles carry `sentiment`, `entities`, `topics`,
+`categories`, `keywords`, `clusterId` (story clustering), `score`, `summary`.
+Response shape: top-level `{articles, numResults, status}`; the article list is under
+`articles`. Endpoint `GET https://api.perigon.io/v1/all`, key as `apiKey` query param.
+
+**Operational gotcha:** `api.perigon.io` is blocked by the tool sandbox's network
+egress (TCP connection reset, not a 401). Perigon calls must run with the sandbox
+disabled — CoinGecko/CCXT/archive.org are fine, only this host is filtered.
+
+First analysis built: `news-impact` (`features/news_impact.py`) — an event study of
+BTC's biggest single-day moves vs that day's crypto news/sentiment (1 call/day).
+Early read: the biggest crashes (FTX week, Nov 2022) clearly coincide with bearish
+news, but sentiment sign matches move sign only ~6/10 (near coin-flip) and the broad
+`q` pulls non-crypto noise — tighten with a crypto topic/category filter and
+`sortBy=relevance` before trusting it as a signal.

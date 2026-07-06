@@ -77,6 +77,14 @@ def main() -> None:
         # Spend ONE Perigon call to verify the key + measure history lookback.
         raise SystemExit(_perigon_probe_cli(argv[1:]))
 
+    if argv and argv[0] == "wayback-vc":
+        # Path 2: enumerate/probe Wayback snapshots of VC portfolio pages.
+        raise SystemExit(_wayback_vc_cli(argv[1:]))
+
+    if argv and argv[0] == "news-impact":
+        # Perigon event study: BTC's biggest move days vs that day's crypto news.
+        raise SystemExit(_news_impact_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -353,6 +361,81 @@ def _perigon_probe_cli(args: list[str]) -> int:
 
     try:
         print_probe(probe(q=ns.q, test_from=ns.frm, test_to=ns.to))
+    except PerigonError as e:
+        print(f"perigon: {e}")
+        return 1
+    return 0
+
+
+def _wayback_vc_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.wayback_vc import (
+        VC_PORTFOLIO_URLS,
+        collect_point_in_time,
+        fetch_snapshot,
+        list_snapshots,
+        probe_extractable,
+    )
+
+    parser = argparse.ArgumentParser(prog="quiverquant wayback-vc")
+    parser.add_argument("--fund", default="a16z crypto", choices=list(VC_PORTFOLIO_URLS),
+                        help="which VC portfolio page to enumerate")
+    parser.add_argument("--from-year", type=int, default=2020)
+    parser.add_argument("--to-year", type=int, default=2026)
+    parser.add_argument("--probe", action="store_true",
+                        help="also fetch one snapshot and check if companies are extractable")
+    parser.add_argument("--extract", action="store_true",
+                        help="walk all snapshots, extract companies, store point-in-time backings")
+    parser.add_argument("--index", type=int, default=-1,
+                        help="snapshot index to probe (default -1 = latest)")
+    ns = parser.parse_args(args)
+
+    if ns.extract:
+        s = collect_point_in_time(ns.fund, from_year=ns.from_year, to_year=ns.to_year)
+        print(f"\n=== Point-in-time VC portfolio: {s['fund']} ===")
+        print(f"  snapshots: {s['snapshots_extractable']}/{s['snapshots_total']} extractable"
+              f"  ({s.get('date_range', 'n/a')})")
+        print(f"  distinct companies over time : {s['companies']}  (stored {s.get('rows_inserted', 0)} rows)")
+        churned = s.get("churned_out", [])
+        print(f"  churned OUT of portfolio (survivorship-bias fix): {len(churned)}")
+        if churned:
+            print(f"    {', '.join(churned[:30])}{' ...' if len(churned) > 30 else ''}")
+        return 0
+
+    url = VC_PORTFOLIO_URLS[ns.fund]
+    snaps = list_snapshots(url, from_year=ns.from_year, to_year=ns.to_year)
+    print(f"\n=== Wayback snapshots: {ns.fund} ({url}) ===")
+    print(f"  {len(snaps)} monthly captures {ns.from_year}-{ns.to_year}")
+    for s in snaps[:6]:
+        print(f"    {s.date}  {s.raw_url}")
+    if len(snaps) > 6:
+        print(f"    ... and {len(snaps) - 6} more (last: {snaps[-1].date})")
+
+    if ns.probe and snaps:
+        snap = snaps[ns.index]
+        print(f"\n  probing snapshot {snap.date} for extractable content ...")
+        diag = probe_extractable(fetch_snapshot(snap))
+        print(f"    html length          : {diag['html_len']}")
+        print(f"    known companies found: {diag['n_known_found']}  {diag['known_companies_found']}")
+        print(f"    embedded JSON payload: {diag['looks_like_spa_json']}")
+        print(f"    verdict              : {diag['verdict']}")
+    return 0
+
+
+def _news_impact_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.collectors.perigon import PerigonError
+    from quiverquant.features.news_impact import print_impact, run_news_impact
+
+    parser = argparse.ArgumentParser(prog="quiverquant news-impact")
+    parser.add_argument("--top", type=int, default=10,
+                        help="how many of BTC's biggest move days to examine (= Perigon calls)")
+    ns = parser.parse_args(args)
+
+    try:
+        print_impact(run_news_impact(n=ns.top))
     except PerigonError as e:
         print(f"perigon: {e}")
         return 1
