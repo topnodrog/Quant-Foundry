@@ -303,6 +303,22 @@ ever gets there.
     walk-forward-selected 26-week MA the full-window +175% has permutation p ≈ 0.09. But it is very
     window-sensitive (an 8-week MA overtrades to p ≈ 0.90, worse than noise), and scoring
     significance at the tuned window is mildly optimistic — verdict "promising, not qualified."
+  - *Candidate 4 — crypto-news-sentiment contrarian (`news`):* fills the news/sentiment category
+    (§2 #4) with a monthly net-sentiment series backfilled from the Perigon API (`news-backfill`,
+    topic=Cryptocurrency, 54 months 2022-2026, stamped at month-close so no lookahead). Best
+    walk-forward beat-count yet — 3/4 folds beat buy-&-hold (verdict "PASS-ish", compounded OOS
+    +5.4%) — BUT two of those folds returned exactly 0.00% (it sat in cash), so the wins are
+    drawdown-avoidance, and it missed a +55% up fold entirely; permutation p = 0.15, not
+    distinguishable from shuffled sentiment. A drawdown-avoider, not a proven edge. (Also built:
+    a forward crypto-news feed `quiverquant perigon`, Windows-scheduled daily, accumulating a finer
+    series; and a `news-impact` event study — the biggest BTC crashes coincide with bearish news,
+    e.g. FTX week, but sentiment sign predicts direction only ~coin-flip.)
+
+  **Gate scoreboard — 4 candidates, none qualify (all fail significance p≤0.05):** F&G 1/4 folds
+  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15. The gates are doing their job:
+  every candidate that looked good in-sample (e.g. news +152%, dev +175%) was cut down out-of-sample
+  or by the shuffled-signal null. No single free signal has shown a durable, statistically-significant
+  BTC-timing edge.
 
   **Lever #2 (graph features) built (`features/graph.py`, `quiverquant graph-features`):** VC
   conviction (projects backed by ≥2 distinct funds) + fund co-investment overlap from the

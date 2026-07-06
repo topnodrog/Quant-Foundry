@@ -89,6 +89,11 @@ uv run quiverquant graph-features                # Lever #2: VC-conviction / co-
 uv run quiverquant resolve-tokens                # Path 1A: map VC-backed names -> liquid CoinGecko tokens
 uv run quiverquant collect-prices                # Path 1B: daily price history for resolved tokens (via CCXT)
 uv run quiverquant cross-section                 # Path 1C: cross-sectional VC-conviction book (survivorship-biased)
+uv run quiverquant perigon                        # Perigon: incremental crypto-news feed (~1 call; daily-scheduled)
+uv run quiverquant news-backfill                  # Perigon: backfill monthly sentiment series (~1 call/month)
+uv run quiverquant news-impact --top 10           # Perigon: did news move BTC? biggest move days vs that day's news
+uv run quiverquant walkforward --strategy news    # Phase 4: news-sentiment candidate through the gates
+uv run quiverquant wayback-vc --extract           # Path 2: point-in-time VC portfolios from archive.org
 ```
 
 ## Collector status (2026-07-03)
@@ -158,6 +163,18 @@ uv run quiverquant cross-section                 # Path 1C: cross-sectional VC-c
     +175% has a permutation p ≈ 0.09. But it's highly window-sensitive (a naive
     8-week MA overtrades to p ≈ 0.90, *worse* than noise), and testing significance
     at the tuned window is mildly optimistic — so "promising, not qualified."
+  - **Candidate 4 — crypto-news-sentiment contrarian (`--strategy news`) — best
+    walk-forward yet, still fails significance:** a monthly crypto-news net-sentiment
+    series backfilled from Perigon (`news-backfill`, topic=Cryptocurrency, 54 months)
+    drives a contrarian (long on bad-news capitulation, cash on euphoria). It beats
+    buy-&-hold in **3/4** out-of-sample folds (a first — verdict "PASS-ish", compounded
+    OOS +5.4%), but two of those folds returned exactly 0.00% (it sat in cash), so the
+    "wins" are drawdown-avoidance and it missed a +55% up fold entirely; permutation
+    **p = 0.15** — not distinguishable from shuffled sentiment. A drawdown-avoider, not
+    a proven edge.
+  - Scoreboard (all fail significance p≤0.05): F&G 1/4 folds p=0.40 · regime 1/4 p=0.16
+    · dev 2/4 p=0.09 · news 3/4 p=0.15. A forward crypto-news feed
+    (`quiverquant perigon`, Windows-scheduled daily) is accumulating a finer series.
   - **Graph-derived VC-conviction features (`uv run quiverquant graph-features`)** —
     lever #2 from the Open Foundry research, built as `features/graph.py`: computes
     VC conviction (projects backed by ≥2 distinct funds) and fund co-investment
