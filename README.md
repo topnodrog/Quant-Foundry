@@ -9,11 +9,15 @@ are now closed: (a) graph link edges are populated (`WalletTransferredTo`,
 (b) Firecrawl-sourced VC-portfolio data now fills the `FundBacksProtocol`
 "who-backs-what" edges. Latest verified live graph: 570 vertices / 327 edges
 (incl. 226 `FundBacksProtocol` from a16z/Paradigm/Dragonfly portfolios).
-**Phase 3 has started (increment 1 — plumbing):** the nautilus_trader
-`BacktestEngine` now ingests historical price bars (CCXT-sourced, DuckDB-cached)
-and the Fear & Greed alt-data series as a custom `Data` stream, delivered
-time-ordered with no lookahead. It runs a no-op observer strategy only — no
-orders, no P&L, no signal logic yet. See `PLAN.md` for the full roadmap.**
+**Phase 3 done** — the nautilus_trader `BacktestEngine` ingests historical price
+bars (CCXT-sourced, DuckDB-cached) plus Fear & Greed and aggregate-TVL custom
+`Data` streams time-ordered with no lookahead, and runs a first real strategy
+(Fear & Greed contrarian, realistic fees + slippage). **Phase 4 started — the
+qualification harness (§6 steps 2-3):** walk-forward validation and a
+Monte-Carlo permutation significance test now judge candidate strategies out of
+sample. First verdict on the Fear & Greed contrarian: **it does not qualify** —
+it beats buy-&-hold in only 1 of 4 out-of-sample folds and is statistically
+indistinguishable from a shuffled-signal null. See `PLAN.md` for the full roadmap.**
 
 ## Goal
 
@@ -48,9 +52,12 @@ edge, not a guarantee.
   - `collectors/` — one module per PLAN.md §2 source
   - `ontology/` — Phase 2 bridge: maps `raw_signals` rows into the Open Foundry
     crypto ontology (`mapping.py` pure/tested, `client.py`, `migrate.py`)
-  - `backtest/` — Phase 3 nautilus_trader pipeline: `ohlcv.py` (CCXT historical
+  - `backtest/` — Phase 3/4 nautilus_trader pipeline: `ohlcv.py` (CCXT historical
     bars → DuckDB), `signals.py` + `data.py` (`raw_signals` → custom `Data`),
-    `observer.py` (no-op observer strategy), `run.py` (BacktestEngine wiring)
+    `observer.py` (no-op observer strategy), `strategy.py` (Fear & Greed
+    contrarian), `run.py` (BacktestEngine wiring), and the Phase 4 qualification
+    harness: `harness.py` (reusable windowed run primitive), `walkforward.py`
+    (anchored walk-forward), `significance.py` (permutation test)
   - `backfill/` — Phase 3 historical backfills that turn point-in-time collectors
     into real time series (`defillama_tvl.py`; Fear & Greed reuses its collector)
 - `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
@@ -70,6 +77,8 @@ uv run quiverquant backtest --strategy sentiment # Phase 3: Fear & Greed contrar
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
+uv run quiverquant walkforward --splits 4        # Phase 4: anchored walk-forward validation (out-of-sample)
+uv run quiverquant significance --permutations 200  # Phase 4: shuffled-signal permutation test (p-value)
 ```
 
 ## Collector status (2026-07-03)
@@ -111,5 +120,18 @@ uv run quiverquant backfill dev-activity         # Phase 3: weekly commit histor
     it returned +46% (83% win rate, 6 trades) vs +195% buy-&-hold — it sits in
     cash during rallies, so it trails in a bull market. NOT qualified — it's the
     first candidate for the Phase 4 §6 gates (walk-forward, significance).
-- **Phase 4:** walk-forward validation, statistical significance, paper trading
+- **Phase 4 (in progress):** the qualification harness — walk-forward + statistical
+  significance (§6 steps 2-3), then paper trading (§6 step 4).
+  - Walk-forward + significance harness done (`backtest/harness.py`,
+    `walkforward.py`, `significance.py`; `uv run quiverquant walkforward` /
+    `significance`). Anchored walk-forward tunes thresholds in-sample and scores
+    them out-of-sample; the permutation test shuffles Fear & Greed values across
+    their timestamps to build a null return distribution.
+  - **First candidate judged — Fear & Greed contrarian does NOT qualify:**
+    out-of-sample it beats buy-&-hold in only 1 of 4 folds (compounded OOS
+    -27%), and over the full window its +46% is indistinguishable from a
+    shuffled-signal null (permutation p = 0.40, null mean +44% ≈ the strategy's
+    own return — its "edge" is just bull-market drift). Back to revision per §6.
+  - Next: add signals (aggregate TVL / dev-activity / regime filter) to the
+    strategy and re-run the gates; then paper trade a candidate that passes.
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

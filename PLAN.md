@@ -1,11 +1,13 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
-**Status (updated 2026-07-05): Phases 0-2 done. 9 collectors are live (§2, incl. the Firecrawl
-VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the running stack and
-`raw_signals` rows are ingested into the ontology, graph edges included. Both Phase 2 tails are
-closed: graph link edges are populated, and Firecrawl VC-portfolio data fills the `FundBacksProtocol`
-edges (latest live graph: 570 vertices / 327 edges). No capital at risk — no backtesting /
-paper-trading / execution code yet. Phases 3-5 not started. `README.md` tracks live status.**
+**Status (updated 2026-07-06): Phases 0-3 done, Phase 4 in progress. 9 collectors are live (§2,
+incl. the Firecrawl VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the
+running stack and `raw_signals` rows are ingested into the ontology, graph edges included (latest
+live graph: 570 vertices / 327 edges). Phase 3 built the nautilus_trader backtest pipeline and a
+first strategy (Fear & Greed contrarian). Phase 4 built the qualification harness (walk-forward +
+permutation significance, §6 steps 2-3) and used it to judge that first strategy — which does NOT
+qualify (fails both gates; see the Phase 4 entry in §9). No capital at risk — backtest/validation
+only, no paper-trading or live execution yet. Phase 5 not started. `README.md` tracks live status.**
 Synthesizes: `research/quiverquant-data-landscape.md`, `research/firecrawl.md`,
 `research/github-openfoundry-nautilus.md`, `research/github-quanthedgefund-alphascanner.md`,
 `research/liquid-trade-coinvest-ai.md`.
@@ -278,8 +280,18 @@ ever gets there.
     unreliable here — too few trade days for a daily-return series.
   - *Next (Phase 4):* walk-forward + statistical-significance harness (§6 steps 2-3) to actually
     judge this and future candidates; add signals (TVL/dev-activity/regime) to the strategy.
-- **Phase 4:** build walk-forward + statistical-significance tooling (§6 steps 2-3), then paper
-  trade (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer simulation mode.
+- **Phase 4 (in progress):** built the qualification harness (§6 steps 2-3) on a shared windowed
+  run primitive (`backtest/harness.py`): anchored walk-forward (`walkforward.py`, `quiverquant
+  walkforward`) tunes thresholds in-sample and scores them out-of-sample; a Monte-Carlo permutation
+  test (`significance.py`, `quiverquant significance`) shuffles Fear & Greed *values* across their
+  timestamps to build a null return distribution (total-return statistic, since too few trades make
+  Sharpe unreliable — see §9). **First candidate judged and it does NOT qualify:** the Fear & Greed
+  contrarian beats buy-&-hold in only 1 of 4 out-of-sample folds (compounded OOS -27%), and its
+  full-window +46% is statistically indistinguishable from the shuffled-signal null (200-permutation
+  p = 0.40; null mean +44% ≈ the strategy's own return — the apparent gain is bull-market drift a
+  random signal captures equally). Per §6 this sends the candidate back for revision (add
+  TVL/dev-activity/regime signals). **Not yet done:** paper trading (§6 step 4) via nautilus_trader
+  live-data mode and/or Co-Invest Computer simulation mode, once a candidate clears these two gates.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
   thresholds (§6 step 5), independently verify Liquid's legal standing or finalize direct
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by

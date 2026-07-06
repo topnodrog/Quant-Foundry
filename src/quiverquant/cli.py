@@ -47,6 +47,15 @@ def main() -> None:
         # point-in-time collectors become backtestable time series.
         raise SystemExit(_backfill_cli(argv[1:]))
 
+    if argv and argv[0] == "walkforward":
+        # Phase 4: anchored walk-forward validation (§6 step 2) — tune thresholds
+        # in-sample, score out-of-sample, rolling forward.
+        raise SystemExit(_walkforward_cli(argv[1:]))
+
+    if argv and argv[0] == "significance":
+        # Phase 4: permutation test (§6 step 3) — does the signal beat shuffled noise?
+        raise SystemExit(_significance_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -156,6 +165,66 @@ def _backtest_cli(args: list[str]) -> int:
         starting_balance=ns.balance,
     )
     print_summary(summary)
+    return 0
+
+
+def _walkforward_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.backtest.walkforward import print_report, walk_forward
+
+    parser = argparse.ArgumentParser(prog="quiverquant walkforward")
+    parser.add_argument("--exchange", default="binance")
+    parser.add_argument("--symbol", default="BTC/USDT")
+    parser.add_argument("--timeframe", default="1d")
+    parser.add_argument("--days", type=int, default=1460, help="days of bars to backfill on cache miss")
+    parser.add_argument("--splits", type=int, default=4, help="number of out-of-sample test windows")
+    parser.add_argument("--train-frac", type=float, default=0.4, help="initial in-sample fraction")
+    parser.add_argument("--balance", type=float, default=100_000.0)
+    ns = parser.parse_args(args)
+
+    report = walk_forward(
+        n_splits=ns.splits,
+        train_frac=ns.train_frac,
+        starting_balance=ns.balance,
+        exchange=ns.exchange,
+        symbol=ns.symbol,
+        timeframe=ns.timeframe,
+        days=ns.days,
+    )
+    print_report(report)
+    return 0
+
+
+def _significance_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.backtest.significance import permutation_test, print_report
+
+    parser = argparse.ArgumentParser(prog="quiverquant significance")
+    parser.add_argument("--exchange", default="binance")
+    parser.add_argument("--symbol", default="BTC/USDT")
+    parser.add_argument("--timeframe", default="1d")
+    parser.add_argument("--days", type=int, default=1460, help="days of bars to backfill on cache miss")
+    parser.add_argument("--permutations", type=int, default=100, help="number of shuffled-signal runs")
+    parser.add_argument("--fear", type=int, default=30, help="fear entry threshold")
+    parser.add_argument("--greed", type=int, default=70, help="greed exit threshold")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--balance", type=float, default=100_000.0)
+    ns = parser.parse_args(args)
+
+    report = permutation_test(
+        n_permutations=ns.permutations,
+        fear_threshold=ns.fear,
+        greed_threshold=ns.greed,
+        seed=ns.seed,
+        starting_balance=ns.balance,
+        exchange=ns.exchange,
+        symbol=ns.symbol,
+        timeframe=ns.timeframe,
+        days=ns.days,
+    )
+    print_report(report)
     return 0
 
 
