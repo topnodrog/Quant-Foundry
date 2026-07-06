@@ -214,9 +214,9 @@ def _walkforward_cli(args: list[str]) -> int:
 
     parser = argparse.ArgumentParser(prog="quiverquant walkforward")
     parser.add_argument("--strategy", default="sentiment",
-                        choices=["sentiment", "regime", "dev", "news"],
-                        help="sentiment = Fear & Greed; regime = + TVL-momentum gate; "
-                             "dev = developer-activity momentum; news = crypto-news-sentiment")
+                        choices=["sentiment", "regime", "dev", "news", "ensemble"],
+                        help="sentiment=Fear&Greed; regime=+TVL gate; dev=dev-activity; "
+                             "news=news-sentiment; ensemble=consensus of all four")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -249,9 +249,9 @@ def _significance_cli(args: list[str]) -> int:
 
     parser = argparse.ArgumentParser(prog="quiverquant significance")
     parser.add_argument("--strategy", default="sentiment",
-                        choices=["sentiment", "regime", "dev", "news"],
-                        help="sentiment = Fear & Greed; regime = + TVL-momentum gate; "
-                             "dev = developer-activity momentum; news = crypto-news-sentiment")
+                        choices=["sentiment", "regime", "dev", "news", "ensemble"],
+                        help="sentiment=Fear&Greed; regime=+TVL gate; dev=dev-activity; "
+                             "news=news-sentiment; ensemble=consensus of all four")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -263,6 +263,7 @@ def _significance_cli(args: list[str]) -> int:
     parser.add_argument("--dev-ma-window", type=int, default=8, help="weeks for the dev-activity moving average (dev)")
     parser.add_argument("--news-low", type=float, default=-0.10, help="net-sentiment capitulation entry (news)")
     parser.add_argument("--news-high", type=float, default=0.05, help="net-sentiment euphoria exit (news)")
+    parser.add_argument("--min-votes", type=int, default=2, help="signals that must agree (ensemble)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
@@ -276,6 +277,7 @@ def _significance_cli(args: list[str]) -> int:
         dev_ma_window=ns.dev_ma_window,
         news_low=ns.news_low,
         news_high=ns.news_high,
+        min_votes=ns.min_votes,
         seed=ns.seed,
         starting_balance=ns.balance,
         exchange=ns.exchange,

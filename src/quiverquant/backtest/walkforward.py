@@ -73,6 +73,8 @@ def _param_grid(strategy: str, fears, greeds, dev_windows,
             {"news_low": lo, "news_high": hi}
             for lo in news_lows for hi in news_highs if lo < hi
         ]
+    if strategy == "ensemble":
+        return [{"min_votes": k} for k in (1, 2, 3, 4)]
     # sentiment / regime tune the sentiment thresholds; regime also gets a fixed
     # tvl_ma_window from the caller (not searched, to keep the grid small).
     return [
@@ -86,6 +88,8 @@ def _param_label(params: dict) -> str:
         return f"MA{params['dev_ma_window']}w"
     if "news_low" in params:
         return f"L{params['news_low']}/H{params['news_high']}"
+    if "min_votes" in params:
+        return f"votes>={params['min_votes']}"
     return f"F{params.get('fear_threshold')}/G{params.get('greed_threshold')}"
 
 
@@ -239,6 +243,7 @@ _STRATEGY_LABEL = {
     "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
     "dev": "Developer-activity momentum",
     "news": "Crypto-news-sentiment contrarian",
+    "ensemble": "Four-signal consensus ensemble",
 }
 
 

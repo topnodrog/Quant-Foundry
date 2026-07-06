@@ -122,10 +122,16 @@ def test_default_grid_nonempty():
     assert dg and all("dev_ma_window" in p for p in dg)
 
 
+def test_ensemble_grid_is_over_vote_counts():
+    grid = _param_grid("ensemble", (20,), (60,), (8,))
+    assert grid == [{"min_votes": 1}, {"min_votes": 2}, {"min_votes": 3}, {"min_votes": 4}]
+
+
 def test_param_label_renders_each_strategy():
     assert _param_label({"fear_threshold": 30, "greed_threshold": 70}) == "F30/G70"
     assert _param_label({"dev_ma_window": 8}) == "MA8w"
     assert _param_label({"news_low": -0.1, "news_high": 0.05}) == "L-0.1/H0.05"
+    assert _param_label({"min_votes": 3}) == "votes>=3"
 
 
 # --- permutation shuffle --------------------------------------------------

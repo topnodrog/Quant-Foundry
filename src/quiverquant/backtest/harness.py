@@ -55,6 +55,8 @@ from quiverquant.backtest.signals import (
 from quiverquant.backtest.strategy import (
     DevMomentumConfig,
     DevMomentumStrategy,
+    EnsembleConfig,
+    EnsembleStrategy,
     FearGreedContrarianConfig,
     FearGreedContrarianStrategy,
     NewsSentimentConfig,
@@ -176,11 +178,23 @@ def _make_engine() -> BacktestEngine:
 def _build_strategy(
     name: str, instrument, bar_type, *,
     fear_threshold, greed_threshold, tvl_ma_window, dev_ma_window,
-    news_low, news_high,
+    news_low, news_high, min_votes,
 ):
     """Construct the requested strategy. ``sentiment`` = Fear & Greed contrarian;
     ``regime`` = the same plus a DeFi-TVL momentum exit gate; ``dev`` =
-    developer-activity momentum; ``news`` = crypto-news-sentiment contrarian."""
+    developer-activity momentum; ``news`` = crypto-news-sentiment contrarian;
+    ``ensemble`` = consensus vote over all four."""
+    if name == "ensemble":
+        return EnsembleStrategy(
+            EnsembleConfig(
+                instrument_id=instrument.id,
+                bar_type=bar_type,
+                min_votes=min_votes,
+                tvl_ma_window=tvl_ma_window,
+                dev_ma_window=dev_ma_window,
+                news_low=news_low,
+            )
+        )
     if name == "news":
         return NewsSentimentStrategy(
             NewsSentimentConfig(
@@ -235,14 +249,16 @@ def run_window(
     dev_ma_window: int = 8,
     news_low: float = -0.10,
     news_high: float = 0.05,
+    min_votes: int = 2,
     starting_balance: float = 100_000.0,
 ) -> WindowResult:
     """Run a strategy over one bar/signal slice.
 
     ``strategy`` selects ``sentiment`` (Fear & Greed only), ``regime`` (adds a
     TVL-momentum exit gate — needs ``tvl``), ``dev`` (developer-activity momentum —
-    needs ``dev``), or ``news`` (crypto-news-sentiment contrarian — needs
-    ``sentiment``). Reports ending NET WORTH (USDT + BTC*last_close),
+    needs ``dev``), ``news`` (crypto-news-sentiment contrarian — needs ``sentiment``),
+    or ``ensemble`` (consensus over all four — needs every stream). Reports ending
+    NET WORTH (USDT + BTC*last_close),
     not the raw USDT bucket: on a CASH spot account an open position at window end
     splits value across currency buckets, so only the sum is an honest
     single-number return (same reasoning as ``run.run_sentiment_backtest``).
@@ -288,7 +304,7 @@ def run_window(
         strategy, instrument, dataset.bar_type,
         fear_threshold=fear_threshold, greed_threshold=greed_threshold,
         tvl_ma_window=tvl_ma_window, dev_ma_window=dev_ma_window,
-        news_low=news_low, news_high=news_high,
+        news_low=news_low, news_high=news_high, min_votes=min_votes,
     )
     engine.add_strategy(strat)
     engine.run()

@@ -29,7 +29,12 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from quiverquant.backtest.data import DevActivityData, FearGreedData, NewsSentimentData
+from quiverquant.backtest.data import (
+    DevActivityData,
+    FearGreedData,
+    NewsSentimentData,
+    TvlData,
+)
 from quiverquant.backtest.harness import Dataset, load_dataset, run_window
 
 
@@ -115,6 +120,21 @@ def _shuffle_sentiment(sent: list[NewsSentimentData], rng: random.Random) -> lis
     ]
 
 
+def _shuffle_tvl(tvl: list[TvlData], rng: random.Random) -> list[TvlData]:
+    """TVL analogue: same timestamps, TVL values permuted (breaks momentum)."""
+    order = list(range(len(tvl)))
+    rng.shuffle(order)
+    return [
+        TvlData(
+            ts_event=tvl[i].ts_event,
+            ts_init=tvl[i].ts_init,
+            total_usd=tvl[j].total_usd,
+            protocol_count=tvl[j].protocol_count,
+        )
+        for i, j in enumerate(order)
+    ]
+
+
 def permutation_test(
     dataset: Dataset | None = None,
     *,
@@ -126,6 +146,7 @@ def permutation_test(
     dev_ma_window: int = 8,
     news_low: float = -0.10,
     news_high: float = 0.05,
+    min_votes: int = 2,
     starting_balance: float = 100_000.0,
     seed: int = 42,
     progress: bool = True,
@@ -147,34 +168,45 @@ def permutation_test(
     if not dataset.bars:
         raise ValueError("no price bars loaded")
 
-    # Attach only the streams a strategy uses: sentiment=fg, regime=fg+tvl, dev=dev,
-    # news=sentiment. Shuffle the signal the strategy keys on; keep any secondary real.
-    tvl_stream = dataset.tvl if strategy == "regime" else None
-
-    def _run(fg_series, dev_series, sent_series):
+    # Attach only the streams a strategy uses, and shuffle whichever signal(s) it
+    # keys on (keeping any secondary real). sentiment=fg; regime=fg(shuffled)+tvl(real);
+    # dev=dev; news=sentiment; ensemble=all four shuffled together (the strict null).
+    def _run(fg_series, tvl_series, dev_series, sent_series):
         return run_window(
-            dataset, dataset.bars, fg_series, tvl_stream, dev_series, sent_series,
+            dataset, dataset.bars, fg_series, tvl_series, dev_series, sent_series,
             strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
             tvl_ma_window=tvl_ma_window, dev_ma_window=dev_ma_window,
-            news_low=news_low, news_high=news_high, starting_balance=starting_balance,
+            news_low=news_low, news_high=news_high, min_votes=min_votes,
+            starting_balance=starting_balance,
         )
 
-    if strategy == "news":
-        actual = _run([], None, dataset.sentiment)
+    if strategy == "ensemble":
+        actual = _run(dataset.fg, dataset.tvl, dataset.dev, dataset.sentiment)
+    elif strategy == "news":
+        actual = _run([], None, None, dataset.sentiment)
     elif strategy == "dev":
-        actual = _run([], dataset.dev, None)
+        actual = _run([], None, dataset.dev, None)
+    elif strategy == "regime":
+        actual = _run(dataset.fg, dataset.tvl, None, None)
     else:
-        actual = _run(dataset.fg, None, None)
+        actual = _run(dataset.fg, None, None, None)
 
     rng = random.Random(seed)
     permuted: list[float] = []
     for k in range(n_permutations):
-        if strategy == "news":
-            r = _run([], None, _shuffle_sentiment(dataset.sentiment, rng))
+        if strategy == "ensemble":
+            r = _run(
+                _shuffle_values(dataset.fg, rng), _shuffle_tvl(dataset.tvl, rng),
+                _shuffle_dev(dataset.dev, rng), _shuffle_sentiment(dataset.sentiment, rng),
+            )
+        elif strategy == "news":
+            r = _run([], None, None, _shuffle_sentiment(dataset.sentiment, rng))
         elif strategy == "dev":
-            r = _run([], _shuffle_dev(dataset.dev, rng), None)
+            r = _run([], None, _shuffle_dev(dataset.dev, rng), None)
+        elif strategy == "regime":
+            r = _run(_shuffle_values(dataset.fg, rng), dataset.tvl, None, None)
         else:
-            r = _run(_shuffle_values(dataset.fg, rng), None, None)
+            r = _run(_shuffle_values(dataset.fg, rng), None, None, None)
         permuted.append(r.strategy_return_pct if r.strategy_return_pct is not None else 0.0)
         if progress and (k + 1) % 20 == 0:
             print(f"  [significance] {k + 1}/{n_permutations} permutations...")
@@ -193,6 +225,7 @@ _STRATEGY_LABEL = {
     "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
     "dev": "Developer-activity momentum",
     "news": "Crypto-news-sentiment contrarian",
+    "ensemble": "Four-signal consensus ensemble",
 }
 
 

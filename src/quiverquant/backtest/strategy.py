@@ -240,3 +240,80 @@ class NewsSentimentStrategy(FearGreedContrarianStrategy):
         elif self.latest_sent >= self.config.high_threshold and is_long:
             self.close_all_positions(self.config.instrument_id)
             self.exits += 1
+
+
+class EnsembleConfig(StrategyConfig, frozen=True):
+    """Consensus of the four individual signals. Only ``min_votes`` is tuned; the
+    per-signal thresholds are fixed at sensible defaults so walk-forward searches a
+    single, low-overfit knob (how many signals must agree to hold BTC)."""
+
+    instrument_id: InstrumentId
+    bar_type: BarType
+    min_votes: int = 2             # go long when >= this many signals vote bullish
+    fg_fear: int = 45             # F&G contrarian: bullish when index at/below this
+    tvl_ma_window: int = 30       # TVL momentum: bullish when above this MA
+    dev_ma_window: int = 13       # dev momentum: bullish when above this MA
+    news_low: float = 0.0         # news contrarian: bullish when net sentiment at/below
+    trade_fraction: float = 0.95
+
+
+class EnsembleStrategy(FearGreedContrarianStrategy):
+    """Combine all four signals by majority-style vote. Each signal casts a bullish
+    vote from its own rule — F&G contrarian (fear), TVL momentum, dev momentum,
+    news-sentiment contrarian (capitulation) — and we hold BTC while at least
+    ``min_votes`` agree, else sit in cash. The ensemble hypothesis: independent weak
+    signals may combine into something the shuffled-signal null can't reproduce.
+    """
+
+    def __init__(self, config: EnsembleConfig) -> None:
+        super().__init__(config)
+        self.latest_tvl: float | None = None
+        self.latest_dev: int | None = None
+        self.latest_sent: float | None = None
+        self._tvl_window: deque[float] = deque(maxlen=config.tvl_ma_window)
+        self._dev_window: deque[int] = deque(maxlen=config.dev_ma_window)
+
+    def on_start(self) -> None:
+        self.instrument = self.cache.instrument(self.config.instrument_id)
+        self.subscribe_bars(self.config.bar_type)
+        self.subscribe_data(DataType(FearGreedData))
+        self.subscribe_data(DataType(TvlData))
+        self.subscribe_data(DataType(DevActivityData))
+        self.subscribe_data(DataType(NewsSentimentData))
+
+    def on_data(self, data) -> None:  # noqa: ANN001 - nautilus Data
+        if isinstance(data, FearGreedData):
+            self.latest_fg = data.value
+        elif isinstance(data, TvlData):
+            self.latest_tvl = data.total_usd
+            self._tvl_window.append(data.total_usd)
+        elif isinstance(data, DevActivityData):
+            self.latest_dev = data.total_commits
+            self._dev_window.append(data.total_commits)
+        elif isinstance(data, NewsSentimentData):
+            self.latest_sent = data.net_sentiment
+
+    def _bull_votes(self) -> int:
+        votes = 0
+        if self.latest_fg is not None and self.latest_fg <= self.config.fg_fear:
+            votes += 1  # F&G contrarian: others fearful
+        if self.latest_tvl is not None and len(self._tvl_window) == self._tvl_window.maxlen:
+            if self.latest_tvl >= sum(self._tvl_window) / len(self._tvl_window):
+                votes += 1  # TVL risk-on momentum
+        if self.latest_dev is not None and len(self._dev_window) == self._dev_window.maxlen:
+            if self.latest_dev >= sum(self._dev_window) / len(self._dev_window):
+                votes += 1  # builder momentum
+        if self.latest_sent is not None and self.latest_sent <= self.config.news_low:
+            votes += 1  # news contrarian: bad-news capitulation
+        return votes
+
+    def on_bar(self, bar) -> None:  # noqa: ANN001 - nautilus Bar
+        if self.instrument is None:
+            return
+        is_long = self.portfolio.net_position(self.config.instrument_id) > 0
+        bullish = self._bull_votes() >= self.config.min_votes
+        if bullish and not is_long:
+            self._enter_long(bar)
+        elif not bullish and is_long:
+            self.close_all_positions(self.config.instrument_id)
+            self.exits += 1
