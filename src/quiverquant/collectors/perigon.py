@@ -170,6 +170,69 @@ class PerigonNewsCollector(Collector):
             }
 
 
+def _iter_months(start: str, end: str):
+    """Yield (year, month) from ``start`` (YYYY-MM) up to but excluding ``end``."""
+    sy, sm = (int(x) for x in start.split("-"))
+    ey, em = (int(x) for x in end.split("-"))
+    y, m = sy, sm
+    while (y, m) < (ey, em):
+        yield y, m
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+
+
+def _stored_sentiment_months() -> set[str]:
+    con = get_connection()
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT json_extract_string(payload, '$.month') "
+            "FROM raw_signals WHERE signal_type = 'news_sentiment'"
+        ).fetchall()
+    finally:
+        con.close()
+    return {r[0] for r in rows if r[0]}
+
+
+def backfill_monthly_sentiment(start: str = "2022-01", end: str = "2026-07", size: int = 100) -> int:
+    """Backfill a monthly crypto-news sentiment series (ONE Perigon call/month).
+
+    For each month, samples up to ``size`` articles, averages their net sentiment,
+    and stores one ``news_sentiment`` point **stamped at the first day of the NEXT
+    month** — so a backtest only learns month M's sentiment once M has closed (no
+    lookahead). Skips months already stored, so it's safe to resume.
+    """
+    have = _stored_sentiment_months()
+    records: list[dict[str, Any]] = []
+    for y, m in _iter_months(start, end):
+        month = f"{y}-{m:02d}"
+        if month in have:
+            continue
+        frm = f"{month}-01"
+        ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+        to = f"{ny}-{nm:02d}-01"
+        data = search_all(frm=frm, to=to, size=size, sort_by="date", extra={"topic": CRYPTO_TOPIC})
+        arts = _articles(data)
+        nets = [s for a in arts if (s := _net_sentiment(a)) is not None]
+        net = round(sum(nets) / len(nets), 4) if nets else None
+        num = next((data.get(k) for k in ("numResults", "total") if k in data), None)
+        print(f"[sentiment] {month}: {len(arts)} articles, net {net}, numResults {num}")
+        records.append({
+            "source": "perigon",
+            "tier": "free",
+            "signal_type": "news_sentiment",
+            "entity": "market",
+            "ts": datetime(ny, nm, 1, tzinfo=timezone.utc),
+            "payload": {
+                "month": month, "net_sentiment": net,
+                "article_count": len(arts), "num_results": num,
+            },
+        })
+    from quiverquant.storage import insert_signals
+
+    return insert_signals(records)
+
+
 def _latest_news_date() -> datetime | None:
     con = get_connection()
     try:

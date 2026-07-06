@@ -99,6 +99,16 @@ def test_dev_grid_is_over_ma_windows():
     assert grid == [{"dev_ma_window": 4}, {"dev_ma_window": 8}, {"dev_ma_window": 13}]
 
 
+def test_news_grid_only_keeps_low_below_high():
+    grid = _param_grid("news", (20,), (60,), (8,), news_lows=(-0.1, 0.1), news_highs=(0.0, 0.2))
+    # -0.1<0.0, -0.1<0.2, 0.1<0.2 kept; 0.1<0.0 dropped
+    assert grid == [
+        {"news_low": -0.1, "news_high": 0.0},
+        {"news_low": -0.1, "news_high": 0.2},
+        {"news_low": 0.1, "news_high": 0.2},
+    ]
+
+
 def test_default_grid_nonempty():
     from quiverquant.backtest.walkforward import (
         DEFAULT_DEV_WINDOWS,
@@ -115,6 +125,7 @@ def test_default_grid_nonempty():
 def test_param_label_renders_each_strategy():
     assert _param_label({"fear_threshold": 30, "greed_threshold": 70}) == "F30/G70"
     assert _param_label({"dev_ma_window": 8}) == "MA8w"
+    assert _param_label({"news_low": -0.1, "news_high": 0.05}) == "L-0.1/H0.05"
 
 
 # --- permutation shuffle --------------------------------------------------

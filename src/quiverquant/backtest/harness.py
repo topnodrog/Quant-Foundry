@@ -37,15 +37,18 @@ from nautilus_trader.test_kit.providers import TestInstrumentProvider
 from quiverquant.backtest.data import (
     DevActivityData,
     FearGreedData,
+    NewsSentimentData,
     TvlData,
     build_bars,
     build_dev_data,
     build_fear_greed_data,
+    build_news_sentiment_data,
     build_tvl_data,
 )
 from quiverquant.backtest.ohlcv import backfill, read_ohlcv_df
 from quiverquant.backtest.signals import (
     read_daily_tvl_total,
+    read_monthly_sentiment,
     read_signal_points,
     read_weekly_dev_total,
 )
@@ -54,6 +57,8 @@ from quiverquant.backtest.strategy import (
     DevMomentumStrategy,
     FearGreedContrarianConfig,
     FearGreedContrarianStrategy,
+    NewsSentimentConfig,
+    NewsSentimentStrategy,
     RegimeContrarianConfig,
     RegimeContrarianStrategy,
 )
@@ -74,6 +79,7 @@ class Dataset:
     fg: list[FearGreedData]  # ascending ts_event
     tvl: list[TvlData]  # aggregate DeFi TVL, ascending ts_event
     dev: list[DevActivityData]  # market-wide weekly dev activity, ascending ts_event
+    sentiment: list[NewsSentimentData]  # monthly crypto-news sentiment, ascending ts_event
 
 
 @dataclass(frozen=True)
@@ -121,8 +127,10 @@ def load_dataset(
     fg = build_fear_greed_data(read_signal_points(_SIGNAL_TYPE))
     tvl = build_tvl_data(read_daily_tvl_total())
     dev = build_dev_data(read_weekly_dev_total())
+    sentiment = build_news_sentiment_data(read_monthly_sentiment())
     return Dataset(
-        instrument=instrument, bar_type=bar_type, bars=bars, fg=fg, tvl=tvl, dev=dev
+        instrument=instrument, bar_type=bar_type, bars=bars, fg=fg, tvl=tvl, dev=dev,
+        sentiment=sentiment,
     )
 
 
@@ -153,6 +161,11 @@ def slice_dev(dev: list[DevActivityData], start_ns: int, end_ns: int) -> list[De
     return [d for d in dev if start_ns <= d.ts_event < end_ns]
 
 
+def slice_sentiment(sent: list[NewsSentimentData], start_ns: int, end_ns: int) -> list[NewsSentimentData]:
+    """News-sentiment points whose ``ts_event`` falls in ``[start_ns, end_ns)``."""
+    return [d for d in sent if start_ns <= d.ts_event < end_ns]
+
+
 def _make_engine() -> BacktestEngine:
     """A backtest engine with logging fully bypassed — walk-forward/significance
     spin up hundreds of these, so per-run log I/O would dominate runtime."""
@@ -163,10 +176,20 @@ def _make_engine() -> BacktestEngine:
 def _build_strategy(
     name: str, instrument, bar_type, *,
     fear_threshold, greed_threshold, tvl_ma_window, dev_ma_window,
+    news_low, news_high,
 ):
     """Construct the requested strategy. ``sentiment`` = Fear & Greed contrarian;
     ``regime`` = the same plus a DeFi-TVL momentum exit gate; ``dev`` =
-    developer-activity momentum (long while builder activity is above its MA)."""
+    developer-activity momentum; ``news`` = crypto-news-sentiment contrarian."""
+    if name == "news":
+        return NewsSentimentStrategy(
+            NewsSentimentConfig(
+                instrument_id=instrument.id,
+                bar_type=bar_type,
+                low_threshold=news_low,
+                high_threshold=news_high,
+            )
+        )
     if name == "regime":
         return RegimeContrarianStrategy(
             RegimeContrarianConfig(
@@ -194,7 +217,7 @@ def _build_strategy(
                 greed_threshold=greed_threshold,
             )
         )
-    raise ValueError(f"unknown strategy {name!r}; expected 'sentiment', 'regime' or 'dev'")
+    raise ValueError(f"unknown strategy {name!r}; expected 'sentiment', 'regime', 'dev' or 'news'")
 
 
 def run_window(
@@ -203,19 +226,23 @@ def run_window(
     fg: list[FearGreedData],
     tvl: list[TvlData] | None = None,
     dev: list[DevActivityData] | None = None,
+    sentiment: list[NewsSentimentData] | None = None,
     *,
     strategy: str = "sentiment",
     fear_threshold: int = 30,
     greed_threshold: int = 70,
     tvl_ma_window: int = 30,
     dev_ma_window: int = 8,
+    news_low: float = -0.10,
+    news_high: float = 0.05,
     starting_balance: float = 100_000.0,
 ) -> WindowResult:
     """Run a strategy over one bar/signal slice.
 
     ``strategy`` selects ``sentiment`` (Fear & Greed only), ``regime`` (adds a
-    TVL-momentum exit gate — needs ``tvl``), or ``dev`` (developer-activity
-    momentum — needs ``dev``). Reports ending NET WORTH (USDT + BTC*last_close),
+    TVL-momentum exit gate — needs ``tvl``), ``dev`` (developer-activity momentum —
+    needs ``dev``), or ``news`` (crypto-news-sentiment contrarian — needs
+    ``sentiment``). Reports ending NET WORTH (USDT + BTC*last_close),
     not the raw USDT bucket: on a CASH spot account an open position at window end
     splits value across currency buckets, so only the sum is an honest
     single-number return (same reasoning as ``run.run_sentiment_backtest``).
@@ -252,11 +279,16 @@ def run_window(
         engine.add_data(
             [CustomData(DataType(DevActivityData), d) for d in dev], client_id=_CLIENT_ID
         )
+    if sentiment:
+        engine.add_data(
+            [CustomData(DataType(NewsSentimentData), d) for d in sentiment], client_id=_CLIENT_ID
+        )
 
     strat = _build_strategy(
         strategy, instrument, dataset.bar_type,
         fear_threshold=fear_threshold, greed_threshold=greed_threshold,
         tvl_ma_window=tvl_ma_window, dev_ma_window=dev_ma_window,
+        news_low=news_low, news_high=news_high,
     )
     engine.add_strategy(strat)
     engine.run()

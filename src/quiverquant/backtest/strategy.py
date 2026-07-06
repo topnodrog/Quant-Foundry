@@ -25,7 +25,12 @@ from nautilus_trader.model.enums import OrderSide
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.trading.strategy import Strategy
 
-from quiverquant.backtest.data import DevActivityData, FearGreedData, TvlData
+from quiverquant.backtest.data import (
+    DevActivityData,
+    FearGreedData,
+    NewsSentimentData,
+    TvlData,
+)
 
 
 class FearGreedContrarianConfig(StrategyConfig, frozen=True):
@@ -189,5 +194,49 @@ class DevMomentumStrategy(FearGreedContrarianStrategy):
         if rising and not is_long:
             self._enter_long(bar)
         elif not rising and is_long:
+            self.close_all_positions(self.config.instrument_id)
+            self.exits += 1
+
+
+class NewsSentimentConfig(StrategyConfig, frozen=True):
+    """News-sentiment contrarian. Thresholds are net-sentiment floats
+    (positive-minus-negative), typically small (~[-0.4, +0.2])."""
+
+    instrument_id: InstrumentId
+    bar_type: BarType
+    low_threshold: float = -0.10   # at/below -> capitulation -> go long
+    high_threshold: float = 0.05   # at/above -> euphoria -> step to cash
+    trade_fraction: float = 0.95
+
+
+class NewsSentimentStrategy(FearGreedContrarianStrategy):
+    """Contrarian on monthly crypto-news sentiment: go long when net sentiment is
+    at/below ``low_threshold`` (bad-news capitulation), step to cash at/above
+    ``high_threshold`` (good-news euphoria). Same 'be greedy when others are
+    fearful' logic as the Fear & Greed strategy, but driven by an independent
+    news-sentiment series rather than the Fear & Greed index. Reuses the base
+    long/flat entry; keys on ``NewsSentimentData``.
+    """
+
+    def __init__(self, config: NewsSentimentConfig) -> None:
+        super().__init__(config)
+        self.latest_sent: float | None = None
+
+    def on_start(self) -> None:
+        self.instrument = self.cache.instrument(self.config.instrument_id)
+        self.subscribe_bars(self.config.bar_type)
+        self.subscribe_data(DataType(NewsSentimentData))
+
+    def on_data(self, data) -> None:  # noqa: ANN001 - nautilus Data
+        if isinstance(data, NewsSentimentData):
+            self.latest_sent = data.net_sentiment
+
+    def on_bar(self, bar) -> None:  # noqa: ANN001 - nautilus Bar
+        if self.latest_sent is None or self.instrument is None:
+            return
+        is_long = self.portfolio.net_position(self.config.instrument_id) > 0
+        if self.latest_sent <= self.config.low_threshold and not is_long:
+            self._enter_long(bar)
+        elif self.latest_sent >= self.config.high_threshold and is_long:
             self.close_all_positions(self.config.instrument_id)
             self.exits += 1

@@ -27,7 +27,12 @@ from nautilus_trader.model.data import Bar, BarType
 from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.persistence.wranglers import BarDataWrangler
 
-from quiverquant.backtest.signals import DevTotalPoint, SignalPoint, TvlTotalPoint
+from quiverquant.backtest.signals import (
+    DevTotalPoint,
+    SentimentPoint,
+    SignalPoint,
+    TvlTotalPoint,
+)
 
 
 @customdataclass
@@ -62,6 +67,14 @@ class DevActivityData(Data):
 
     total_commits: int
     repo_count: int
+
+
+@customdataclass
+class NewsSentimentData(Data):
+    """Monthly crypto-news net sentiment (avg positive-minus-negative over sampled
+    articles) delivered as a nautilus custom data event."""
+
+    net_sentiment: float
 
 
 def build_bars(
@@ -138,5 +151,16 @@ def build_dev_data(points: list[DevTotalPoint]) -> list["DevActivityData"]:
                 total_commits=int(p.total_commits),
                 repo_count=int(p.repo_count),
             )
+        )
+    return out
+
+
+def build_news_sentiment_data(points: list[SentimentPoint]) -> list["NewsSentimentData"]:
+    """Map monthly sentiment points into ``NewsSentimentData`` events."""
+    out: list[NewsSentimentData] = []
+    for p in points:
+        ns = _dt_to_ns(p.ts)
+        out.append(
+            NewsSentimentData(ts_event=ns, ts_init=ns, net_sentiment=float(p.net_sentiment))
         )
     return out

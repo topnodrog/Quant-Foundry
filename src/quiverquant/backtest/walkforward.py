@@ -32,6 +32,7 @@ from quiverquant.backtest.harness import (
     slice_bars,
     slice_dev,
     slice_fg,
+    slice_sentiment,
     slice_tvl,
     time_bounds,
 )
@@ -42,6 +43,8 @@ from quiverquant.backtest.harness import (
 DEFAULT_FEARS = (20, 25, 30, 35)
 DEFAULT_GREEDS = (60, 65, 70, 75, 80)
 DEFAULT_DEV_WINDOWS = (4, 8, 13, 26)  # ISO weeks for the dev-activity moving average
+DEFAULT_NEWS_LOWS = (-0.20, -0.10, -0.05)   # net-sentiment capitulation entry
+DEFAULT_NEWS_HIGHS = (0.0, 0.05, 0.10)      # net-sentiment euphoria exit
 
 
 @dataclass(frozen=True)
@@ -60,10 +63,16 @@ class Fold:
     test: WindowResult
 
 
-def _param_grid(strategy: str, fears, greeds, dev_windows) -> list[dict]:
+def _param_grid(strategy: str, fears, greeds, dev_windows,
+                news_lows=DEFAULT_NEWS_LOWS, news_highs=DEFAULT_NEWS_HIGHS) -> list[dict]:
     """In-sample search grid as ``run_window`` kwargs, per strategy."""
     if strategy == "dev":
         return [{"dev_ma_window": w} for w in dev_windows]
+    if strategy == "news":
+        return [
+            {"news_low": lo, "news_high": hi}
+            for lo in news_lows for hi in news_highs if lo < hi
+        ]
     # sentiment / regime tune the sentiment thresholds; regime also gets a fixed
     # tvl_ma_window from the caller (not searched, to keep the grid small).
     return [
@@ -75,6 +84,8 @@ def _param_grid(strategy: str, fears, greeds, dev_windows) -> list[dict]:
 def _param_label(params: dict) -> str:
     if "dev_ma_window" in params:
         return f"MA{params['dev_ma_window']}w"
+    if "news_low" in params:
+        return f"L{params['news_low']}/H{params['news_high']}"
     return f"F{params.get('fear_threshold')}/G{params.get('greed_threshold')}"
 
 
@@ -84,6 +95,7 @@ def _best_params(
     train_fg,
     train_tvl,
     train_dev,
+    train_sent,
     grid: list[dict],
     starting_balance: float,
     strategy: str,
@@ -95,7 +107,7 @@ def _best_params(
     best_score = float("-inf")
     for params in grid:
         r = run_window(
-            dataset, train_bars, train_fg, train_tvl, train_dev,
+            dataset, train_bars, train_fg, train_tvl, train_dev, train_sent,
             strategy=strategy, tvl_ma_window=tvl_ma_window,
             starting_balance=starting_balance, **params,
         )
@@ -157,8 +169,8 @@ def walk_forward(
     **load_kwargs,
 ) -> WalkForwardReport:
     """Run anchored walk-forward validation. ``strategy`` = ``sentiment`` (Fear &
-    Greed only), ``regime`` (adds the TVL-momentum exit gate), or ``dev``
-    (developer-activity momentum)."""
+    Greed only), ``regime`` (adds the TVL-momentum exit gate), ``dev``
+    (developer-activity momentum), or ``news`` (crypto-news-sentiment contrarian)."""
     if not 0 < train_frac < 1:
         raise ValueError("train_frac must be in (0, 1)")
     if n_splits < 1:
@@ -187,20 +199,22 @@ def walk_forward(
         train_fg = slice_fg(dataset.fg, ts0, test_start)
         train_tvl = slice_tvl(dataset.tvl, ts0, test_start)
         train_dev = slice_dev(dataset.dev, ts0, test_start)
+        train_sent = slice_sentiment(dataset.sentiment, ts0, test_start)
         # Signal history predates price bars, so include all points up to the test
-        # window (they warm up latest_fg / the TVL/dev moving averages before the
+        # window (they warm up latest_fg / the TVL/dev/sentiment readings before the
         # first test bar).
         test_bars = slice_bars(dataset.bars, test_start, test_end)
         test_fg = slice_fg(dataset.fg, ts0, test_end)
         test_tvl = slice_tvl(dataset.tvl, ts0, test_end)
         test_dev = slice_dev(dataset.dev, ts0, test_end)
+        test_sent = slice_sentiment(dataset.sentiment, ts0, test_end)
 
         best_params, is_excess = _best_params(
-            dataset, train_bars, train_fg, train_tvl, train_dev, grid,
+            dataset, train_bars, train_fg, train_tvl, train_dev, train_sent, grid,
             starting_balance, strategy, tvl_ma_window,
         )
         test_result = run_window(
-            dataset, test_bars, test_fg, test_tvl, test_dev,
+            dataset, test_bars, test_fg, test_tvl, test_dev, test_sent,
             strategy=strategy, tvl_ma_window=tvl_ma_window,
             starting_balance=starting_balance, **best_params,
         )
@@ -224,6 +238,7 @@ _STRATEGY_LABEL = {
     "sentiment": "Fear & Greed contrarian",
     "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
     "dev": "Developer-activity momentum",
+    "news": "Crypto-news-sentiment contrarian",
 }
 
 

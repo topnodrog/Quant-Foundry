@@ -40,6 +40,16 @@ class DevTotalPoint:
 
 
 @dataclass(frozen=True)
+class SentimentPoint:
+    """Monthly crypto-news net sentiment (avg positive-minus-negative). ``ts`` is
+    tz-aware UTC, stamped at the first day of the month AFTER the sampled one
+    (so backtests learn it only once that month has closed — no lookahead)."""
+
+    ts: datetime
+    net_sentiment: float
+
+
+@dataclass(frozen=True)
 class SignalPoint:
     """One observation in a signal series. ``ts`` is tz-aware UTC."""
 
@@ -152,4 +162,36 @@ def read_weekly_dev_total(
     for day, total, n in rows:
         ts = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
         out.append(DevTotalPoint(ts=ts, total_commits=int(total or 0), repo_count=int(n)))
+    return out
+
+
+def read_monthly_sentiment(
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[SentimentPoint]:
+    """Read the backfilled monthly crypto-news sentiment series, ordered by time."""
+    q = (
+        "SELECT ts, CAST(payload->>'$.net_sentiment' AS DOUBLE) AS s "
+        "FROM raw_signals WHERE signal_type = 'news_sentiment' AND s IS NOT NULL"
+    )
+    params: list[object] = []
+    if start is not None:
+        q += " AND ts >= ?"
+        params.append(start.replace(tzinfo=None))
+    if end is not None:
+        q += " AND ts < ?"
+        params.append(end.replace(tzinfo=None))
+    q += " ORDER BY ts"
+
+    con = get_connection()
+    try:
+        rows = con.execute(q, params).fetchall()
+    finally:
+        con.close()
+
+    out: list[SentimentPoint] = []
+    for ts, s in rows:
+        if isinstance(ts, datetime) and ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        out.append(SentimentPoint(ts=ts, net_sentiment=float(s)))
     return out

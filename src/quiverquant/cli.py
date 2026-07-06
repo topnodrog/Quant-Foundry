@@ -87,6 +87,10 @@ def main() -> None:
         # Perigon event study: BTC's biggest move days vs that day's crypto news.
         raise SystemExit(_news_impact_cli(argv[1:]))
 
+    if argv and argv[0] == "news-backfill":
+        # Backfill a monthly crypto-sentiment series for the Phase 4 gates.
+        raise SystemExit(_news_backfill_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -209,9 +213,10 @@ def _walkforward_cli(args: list[str]) -> int:
     from quiverquant.backtest.walkforward import print_report, walk_forward
 
     parser = argparse.ArgumentParser(prog="quiverquant walkforward")
-    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime", "dev"],
-                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate; "
-                             "dev = developer-activity momentum")
+    parser.add_argument("--strategy", default="sentiment",
+                        choices=["sentiment", "regime", "dev", "news"],
+                        help="sentiment = Fear & Greed; regime = + TVL-momentum gate; "
+                             "dev = developer-activity momentum; news = crypto-news-sentiment")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -243,9 +248,10 @@ def _significance_cli(args: list[str]) -> int:
     from quiverquant.backtest.significance import permutation_test, print_report
 
     parser = argparse.ArgumentParser(prog="quiverquant significance")
-    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime", "dev"],
-                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate; "
-                             "dev = developer-activity momentum")
+    parser.add_argument("--strategy", default="sentiment",
+                        choices=["sentiment", "regime", "dev", "news"],
+                        help="sentiment = Fear & Greed; regime = + TVL-momentum gate; "
+                             "dev = developer-activity momentum; news = crypto-news-sentiment")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -255,6 +261,8 @@ def _significance_cli(args: list[str]) -> int:
     parser.add_argument("--greed", type=int, default=70, help="greed exit threshold")
     parser.add_argument("--tvl-ma-window", type=int, default=30, help="days for the TVL moving average (regime)")
     parser.add_argument("--dev-ma-window", type=int, default=8, help="weeks for the dev-activity moving average (dev)")
+    parser.add_argument("--news-low", type=float, default=-0.10, help="net-sentiment capitulation entry (news)")
+    parser.add_argument("--news-high", type=float, default=0.05, help="net-sentiment euphoria exit (news)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
@@ -266,6 +274,8 @@ def _significance_cli(args: list[str]) -> int:
         greed_threshold=ns.greed,
         tvl_ma_window=ns.tvl_ma_window,
         dev_ma_window=ns.dev_ma_window,
+        news_low=ns.news_low,
+        news_high=ns.news_high,
         seed=ns.seed,
         starting_balance=ns.balance,
         exchange=ns.exchange,
@@ -422,6 +432,25 @@ def _wayback_vc_cli(args: list[str]) -> int:
         print(f"    known companies found: {diag['n_known_found']}  {diag['known_companies_found']}")
         print(f"    embedded JSON payload: {diag['looks_like_spa_json']}")
         print(f"    verdict              : {diag['verdict']}")
+    return 0
+
+
+def _news_backfill_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.collectors.perigon import PerigonError, backfill_monthly_sentiment
+
+    parser = argparse.ArgumentParser(prog="quiverquant news-backfill")
+    parser.add_argument("--start", default="2022-01", help="first month YYYY-MM (Perigon reaches 2022)")
+    parser.add_argument("--end", default="2026-07", help="exclusive end month YYYY-MM")
+    ns = parser.parse_args(args)
+
+    try:
+        n = backfill_monthly_sentiment(start=ns.start, end=ns.end)
+        print(f"news-backfill: inserted {n} monthly sentiment points")
+    except PerigonError as e:
+        print(f"perigon: {e}")
+        return 1
     return 0
 
 
