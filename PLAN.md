@@ -311,10 +311,24 @@ ever gets there.
   becomes tradeable via a cross-sectional long book (needs per-token OHLCV) or once repeated scrapes
   accumulate temporal backing history. See `research/open-foundry-strategic-advantage.md`.
 
-  Per §6 all three go back for revision — next levers: enrich VC coverage + per-token OHLCV for a
-  cross-sectional VC-conviction book, and the point-in-time feature store (lever #1). **Not yet
-  done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest Computer
-  simulation mode, once a candidate clears these two gates.
+  **Cross-sectional VC-conviction book — path 1, built and tested (`features/token_resolve.py`
+  +`token_prices.py`+`cross_section.py`; `resolve-tokens`/`collect-prices`/`cross-section`):** the
+  first backtest that actually *uses* the graph signal. `resolve-tokens` maps VC-backed names to
+  liquid CoinGecko tokens (32/213 — most portfolio companies are equity/pre-token); `collect-prices`
+  pulls daily history via **CCXT** (CoinGecko's `market_chart` now needs a Demo key; CCXT is keyless)
+  — 29/32 tokens, 28k daily rows; `cross-section` runs an equal-weight high-conviction book vs BTC
+  and a random-VC-subset permutation null. **Result: no edge (honest negative).** 2020-2026, the
+  6-name conviction book −77% and the full 29-token VC book −29% vs BTC +195%; conviction did NOT
+  beat random VC picks (p = 0.48, null mean +10%) — and this is *with* survivorship bias helping
+  (current-holdings snapshot). Known caveats: daily-rebalance volatility drag (the conviction-vs-random
+  comparison is apples-to-apples and robust to it), growing composition, homonym mismatches
+  (Gensyn→AI, Rain→RAIN, Sky). Educational upper bound, not a qualified strategy.
+
+  Per §6 the candidates and the VC book all go back for revision. Next: **path 2** — an archive.org
+  scraper for point-in-time VC portfolios (defeats survivorship bias), then re-run the cross-sectional
+  book on the unbiased dataset; also the point-in-time feature store (lever #1, an `ingested_at`
+  column on `raw_signals`). **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data
+  mode and/or Co-Invest Computer simulation mode, once a candidate clears these gates.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
   thresholds (§6 step 5), independently verify Liquid's legal standing or finalize direct
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by

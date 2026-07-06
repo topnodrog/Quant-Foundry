@@ -60,9 +60,11 @@ edge, not a guarantee.
     (anchored walk-forward), `significance.py` (permutation test)
   - `backfill/` — Phase 3 historical backfills that turn point-in-time collectors
     into real time series (`defillama_tvl.py`; Fear & Greed reuses its collector)
-  - `features/` — derived graph features over the ontology edges (`graph.py`:
-    VC conviction + fund co-investment from `FundBacksProtocol`), lever #2 of
-    `research/open-foundry-strategic-advantage.md`
+  - `features/` — derived signals over the ontology data: `graph.py` (VC conviction
+    + fund co-investment from `FundBacksProtocol`, lever #2 of
+    `research/open-foundry-strategic-advantage.md`); `token_resolve.py` (VC name →
+    CoinGecko token), `token_prices.py` (CCXT daily history), `cross_section.py`
+    (equal-weight VC-conviction book vs BTC + random-subset null — path 1)
 - `ontology/crypto-pack/` — Open Foundry external Domain Pack (the UNIFY layer)
 - `deploy/` — how to stand up Open Foundry with the crypto pack mounted
 - `.env.example` — every API key a collector can use, and which sources need none
@@ -84,6 +86,9 @@ uv run quiverquant backfill dev-activity         # Phase 3: weekly commit histor
 uv run quiverquant walkforward --strategy dev --splits 4      # Phase 4: anchored walk-forward (sentiment|regime|dev)
 uv run quiverquant significance --strategy dev --permutations 200  # Phase 4: shuffled-signal permutation test
 uv run quiverquant graph-features                # Lever #2: VC-conviction / co-investment from FundBacksProtocol edges
+uv run quiverquant resolve-tokens                # Path 1A: map VC-backed names -> liquid CoinGecko tokens
+uv run quiverquant collect-prices                # Path 1B: daily price history for resolved tokens (via CCXT)
+uv run quiverquant cross-section                 # Path 1C: cross-sectional VC-conviction book (survivorship-biased)
 ```
 
 ## Collector status (2026-07-03)
@@ -161,6 +166,15 @@ uv run quiverquant graph-features                # Lever #2: VC-conviction / co-
     as of the last scrape, so it does not yet feed the market-timing gates** — it's a
     screening signal until we add per-project token prices (a cross-sectional book)
     or accumulate temporal backing history.
-  - Next: enrich VC coverage (more funds) + collect per-token OHLCV to backtest a
-    cross-sectional VC-conviction long book; then paper trade a candidate that passes.
+  - **Cross-sectional VC-conviction book (path 1) — no edge, honest negative.**
+    `resolve-tokens` maps VC-backed names to liquid CoinGecko tokens (32/213 — most
+    are equity/pre-token), `collect-prices` pulls daily history via CCXT (29/32,
+    28k rows), and `cross-section` backtests an equal-weight high-conviction book
+    (names backed by ≥2 funds) vs BTC + a random-VC-subset null. Over 2020-2026 the
+    6-name conviction book returned **−77%** and the full 29-token VC book −29%, vs
+    **BTC +195%**; conviction did **not** beat random VC picks (**p = 0.48**) — and
+    that's *with* survivorship bias helping. Caveats: daily-rebalance volatility drag,
+    growing composition, a few homonym mismatches. The honest fix is path 2.
+  - Next: **path 2** — an archive.org scraper for point-in-time VC portfolios (defeats
+    survivorship bias), then re-run the cross-sectional book on the unbiased dataset.
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required
