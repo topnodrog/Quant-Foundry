@@ -73,6 +73,10 @@ def main() -> None:
         # Path 1C: cross-sectional VC-conviction long book (survivorship-biased).
         raise SystemExit(_cross_section_cli(argv[1:]))
 
+    if argv and argv[0] == "perigon-probe":
+        # Spend ONE Perigon call to verify the key + measure history lookback.
+        raise SystemExit(_perigon_probe_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -333,6 +337,25 @@ def _cross_section_cli(args: list[str]) -> int:
     print_report(run_cross_section(
         min_funds=ns.min_funds, n_permutations=ns.permutations, seed=ns.seed
     ))
+    return 0
+
+
+def _perigon_probe_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.collectors.perigon import PerigonError, print_probe, probe
+
+    parser = argparse.ArgumentParser(prog="quiverquant perigon-probe")
+    parser.add_argument("--q", default="bitcoin", help="test query term")
+    parser.add_argument("--from", dest="frm", default="2022-01-01", help="lookback test window start")
+    parser.add_argument("--to", default="2022-02-01", help="lookback test window end")
+    ns = parser.parse_args(args)
+
+    try:
+        print_probe(probe(q=ns.q, test_from=ns.frm, test_to=ns.to))
+    except PerigonError as e:
+        print(f"perigon: {e}")
+        return 1
     return 0
 
 

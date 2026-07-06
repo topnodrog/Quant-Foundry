@@ -64,6 +64,9 @@ SOURCES: dict[str, SourceKeys] = {
     # Firecrawl scrape gap-filler (PLAN.md §3). Keyless /scrape works (per-IP
     # rate-limited); FIRECRAWL_API_KEY (fc-...) lifts the limits when supplied.
     "firecrawl": SourceKeys(free_key_env="FIRECRAWL_API_KEY"),
+    # Perigon news-intelligence API — news/sentiment signal category. Paid-only
+    # (no keyless tier); 150 calls/month on the current plan, so use sparingly.
+    "perigon": SourceKeys(free_key_env="PERIGON_API_KEY"),
 }
 
 
