@@ -61,6 +61,10 @@ def main() -> None:
         # FundBacksProtocol ontology edges (research/open-foundry-strategic-advantage.md).
         raise SystemExit(_graph_features_cli(argv[1:]))
 
+    if argv and argv[0] == "resolve-tokens":
+        # Path 1A: map VC-backed company names to tradeable CoinGecko tokens.
+        raise SystemExit(_resolve_tokens_cli(argv[1:]))
+
     requested = argv or list(COLLECTORS.keys())
     for key in requested:
         cls = COLLECTORS.get(key)
@@ -267,6 +271,23 @@ def _graph_features_cli(args: list[str]) -> int:
         print("no vc_portfolio_backing rows found — run `quiverquant firecrawl` first")
         return 1
     print_summary(compute_summary(backings, min_funds=ns.min_funds), limit=ns.limit)
+    return 0
+
+
+def _resolve_tokens_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.token_resolve import build_map, distinct_companies, print_map
+
+    parser = argparse.ArgumentParser(prog="quiverquant resolve-tokens")
+    parser.add_argument("--top", type=int, default=1000,
+                        help="size of the CoinGecko liquid universe to match against")
+    ns = parser.parse_args(args)
+
+    total = len(distinct_companies())
+    resolutions = build_map(top_n=ns.top)
+    print_map(resolutions, total_companies=total)
+    print(f"\n  cached {len(resolutions)} rows to vc_token_map")
     return 0
 
 
