@@ -74,11 +74,12 @@ uv run quiverquant defillama ccxt        # run specific ones
 uv run quiverquant migrate-ontology --dry-run   # Phase 2: preview ontology ingestion
 uv run quiverquant backtest                      # Phase 3: plumbing backtest (observer, 3 streams)
 uv run quiverquant backtest --strategy sentiment # Phase 3: Fear & Greed contrarian strategy (with fees)
+uv run quiverquant backtest --strategy regime    # Phase 4: + DeFi-TVL momentum exit gate
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
-uv run quiverquant walkforward --splits 4        # Phase 4: anchored walk-forward validation (out-of-sample)
-uv run quiverquant significance --permutations 200  # Phase 4: shuffled-signal permutation test (p-value)
+uv run quiverquant walkforward --strategy regime --splits 4   # Phase 4: anchored walk-forward (out-of-sample)
+uv run quiverquant significance --strategy regime --permutations 200  # Phase 4: shuffled-signal permutation test
 ```
 
 ## Collector status (2026-07-03)
@@ -127,11 +128,19 @@ uv run quiverquant significance --permutations 200  # Phase 4: shuffled-signal p
     `significance`). Anchored walk-forward tunes thresholds in-sample and scores
     them out-of-sample; the permutation test shuffles Fear & Greed values across
     their timestamps to build a null return distribution.
-  - **First candidate judged — Fear & Greed contrarian does NOT qualify:**
-    out-of-sample it beats buy-&-hold in only 1 of 4 folds (compounded OOS
-    -27%), and over the full window its +46% is indistinguishable from a
-    shuffled-signal null (permutation p = 0.40, null mean +44% ≈ the strategy's
-    own return — its "edge" is just bull-market drift). Back to revision per §6.
-  - Next: add signals (aggregate TVL / dev-activity / regime filter) to the
-    strategy and re-run the gates; then paper trade a candidate that passes.
+  - **Candidate 1 — Fear & Greed contrarian — does NOT qualify:** out-of-sample
+    it beats buy-&-hold in only 1 of 4 folds (compounded OOS -27%), and over the
+    full window its +46% is indistinguishable from a shuffled-signal null
+    (permutation p = 0.40, null mean +44% ≈ the strategy's own return — its
+    "edge" is just bull-market drift).
+  - **Candidate 2 — + DeFi-TVL momentum exit gate (`--strategy regime`) — better
+    but still does NOT qualify:** holding through greed while aggregate TVL is
+    above its 30-day average lifts the in-sample full-window return to +171%
+    (vs +46%), and it improves *both* gates — 1/4 folds still beat buy-&-hold but
+    compounded OOS rises to -20%, and the permutation p-value tightens to 0.16
+    (vs 0.40). The gate adds real, measurable value, but not enough to clear
+    p≤0.05. Back to revision per §6.
+  - Next: stronger/independent signals (graph-derived VC-conviction features per
+    `research/open-foundry-strategic-advantage.md`, dev-activity) and/or a
+    different asset universe; then paper trade a candidate that passes.
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

@@ -136,23 +136,27 @@ def _backtest_cli(args: list[str]) -> int:
     parser.add_argument(
         "--strategy",
         default="observer",
-        choices=["observer", "sentiment"],
-        help="observer = plumbing check; sentiment = Fear & Greed contrarian",
+        choices=["observer", "sentiment", "regime"],
+        help="observer = plumbing check; sentiment = Fear & Greed contrarian; "
+             "regime = sentiment + TVL-momentum exit gate",
     )
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
-    parser.add_argument("--timeframe", help="default 1h for observer, 1d for sentiment")
+    parser.add_argument("--timeframe", help="default 1h for observer, 1d for sentiment/regime")
     parser.add_argument("--days", type=int, help="days of bars to backfill on cache miss")
+    parser.add_argument("--tvl-ma-window", type=int, default=30, help="days for the TVL moving average (regime)")
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
 
-    if ns.strategy == "sentiment":
+    if ns.strategy in ("sentiment", "regime"):
         summary = run_sentiment_backtest(
             exchange=ns.exchange,
             symbol=ns.symbol,
             timeframe=ns.timeframe or "1d",
             days=ns.days or 1460,
             starting_balance=ns.balance,
+            strategy_name=ns.strategy,
+            tvl_ma_window=ns.tvl_ma_window,
         )
         print_strategy_summary(summary)
         return 0
@@ -174,18 +178,23 @@ def _walkforward_cli(args: list[str]) -> int:
     from quiverquant.backtest.walkforward import print_report, walk_forward
 
     parser = argparse.ArgumentParser(prog="quiverquant walkforward")
+    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime"],
+                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
     parser.add_argument("--days", type=int, default=1460, help="days of bars to backfill on cache miss")
     parser.add_argument("--splits", type=int, default=4, help="number of out-of-sample test windows")
     parser.add_argument("--train-frac", type=float, default=0.4, help="initial in-sample fraction")
+    parser.add_argument("--tvl-ma-window", type=int, default=30, help="days for the TVL moving average (regime)")
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
 
     report = walk_forward(
+        strategy=ns.strategy,
         n_splits=ns.splits,
         train_frac=ns.train_frac,
+        tvl_ma_window=ns.tvl_ma_window,
         starting_balance=ns.balance,
         exchange=ns.exchange,
         symbol=ns.symbol,
@@ -202,6 +211,8 @@ def _significance_cli(args: list[str]) -> int:
     from quiverquant.backtest.significance import permutation_test, print_report
 
     parser = argparse.ArgumentParser(prog="quiverquant significance")
+    parser.add_argument("--strategy", default="sentiment", choices=["sentiment", "regime"],
+                        help="sentiment = Fear & Greed only; regime = + TVL-momentum exit gate")
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
     parser.add_argument("--timeframe", default="1d")
@@ -209,14 +220,17 @@ def _significance_cli(args: list[str]) -> int:
     parser.add_argument("--permutations", type=int, default=100, help="number of shuffled-signal runs")
     parser.add_argument("--fear", type=int, default=30, help="fear entry threshold")
     parser.add_argument("--greed", type=int, default=70, help="greed exit threshold")
+    parser.add_argument("--tvl-ma-window", type=int, default=30, help="days for the TVL moving average (regime)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--balance", type=float, default=100_000.0)
     ns = parser.parse_args(args)
 
     report = permutation_test(
+        strategy=ns.strategy,
         n_permutations=ns.permutations,
         fear_threshold=ns.fear,
         greed_threshold=ns.greed,
+        tvl_ma_window=ns.tvl_ma_window,
         seed=ns.seed,
         starting_balance=ns.balance,
         exchange=ns.exchange,

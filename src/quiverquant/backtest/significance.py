@@ -39,6 +39,7 @@ class SignificanceReport:
     n_permutations: int
     permuted_returns: list[float]
     seed: int
+    strategy: str = "sentiment"
 
     @property
     def n_ge_actual(self) -> int:
@@ -88,14 +89,21 @@ def permutation_test(
     dataset: Dataset | None = None,
     *,
     n_permutations: int = 100,
+    strategy: str = "sentiment",
     fear_threshold: int = 30,
     greed_threshold: int = 70,
+    tvl_ma_window: int = 30,
     starting_balance: float = 100_000.0,
     seed: int = 42,
     progress: bool = True,
     **load_kwargs,
 ) -> SignificanceReport:
-    """Permutation-test the Fear & Greed contrarian strategy against shuffled signals."""
+    """Permutation-test a contrarian strategy against shuffled Fear & Greed signals.
+
+    Only Fear & Greed is shuffled; when ``strategy='regime'`` the TVL series stays
+    intact, so the null becomes the stricter "does the TVL regime gate add value
+    on top of a *noise* sentiment signal?" — a clean test of the added lever.
+    """
     if n_permutations < 1:
         raise ValueError("n_permutations must be >= 1")
 
@@ -105,9 +113,9 @@ def permutation_test(
         raise ValueError("no price bars loaded")
 
     actual = run_window(
-        dataset, dataset.bars, dataset.fg,
-        fear_threshold=fear_threshold, greed_threshold=greed_threshold,
-        starting_balance=starting_balance,
+        dataset, dataset.bars, dataset.fg, dataset.tvl,
+        strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
+        tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
     )
 
     rng = random.Random(seed)
@@ -115,9 +123,9 @@ def permutation_test(
     for k in range(n_permutations):
         shuffled = _shuffle_values(dataset.fg, rng)
         r = run_window(
-            dataset, dataset.bars, shuffled,
-            fear_threshold=fear_threshold, greed_threshold=greed_threshold,
-            starting_balance=starting_balance,
+            dataset, dataset.bars, shuffled, dataset.tvl,
+            strategy=strategy, fear_threshold=fear_threshold, greed_threshold=greed_threshold,
+            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
         )
         permuted.append(r.strategy_return_pct if r.strategy_return_pct is not None else 0.0)
         if progress and (k + 1) % 20 == 0:
@@ -128,11 +136,19 @@ def permutation_test(
         n_permutations=n_permutations,
         permuted_returns=permuted,
         seed=seed,
+        strategy=strategy,
     )
 
 
+_STRATEGY_LABEL = {
+    "sentiment": "Fear & Greed contrarian",
+    "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
+}
+
+
 def print_report(report: SignificanceReport) -> None:
-    print("\n=== Statistical-significance check (permutation test) ===")
+    label = _STRATEGY_LABEL.get(report.strategy, report.strategy)
+    print(f"\n=== Statistical-significance check ({label}, permutation test) ===")
     print(f"  actual strategy return   : {_fmt(report.actual_return_pct)}%")
     print(f"  permutations             : {report.n_permutations} (shuffled Fear & Greed, seed {report.seed})")
     print(f"  null distribution        : min {_fmt(report.null_min_pct)}% / "

@@ -36,6 +36,8 @@ from quiverquant.backtest.signals import read_daily_tvl_total, read_signal_point
 from quiverquant.backtest.strategy import (
     FearGreedContrarianConfig,
     FearGreedContrarianStrategy,
+    RegimeContrarianConfig,
+    RegimeContrarianStrategy,
 )
 
 # CCXT timeframe -> nautilus BarSpecification token
@@ -131,10 +133,13 @@ def run_sentiment_backtest(
     starting_balance: float = 100_000.0,
     fear_threshold: int = 30,
     greed_threshold: int = 70,
+    strategy_name: str = "sentiment",
+    tvl_ma_window: int = 30,
 ) -> dict:
-    """Run the Fear & Greed contrarian strategy with realistic fees (Binance
-    maker/taker 0.1%) and probabilistic slippage. Returns a performance summary
-    including a buy-&-hold benchmark over the same window.
+    """Run a contrarian strategy with realistic fees (Binance maker/taker 0.1%)
+    and probabilistic slippage. ``strategy_name`` selects ``sentiment`` (Fear &
+    Greed only) or ``regime`` (adds a TVL-momentum exit gate). Returns a
+    performance summary including a buy-&-hold benchmark over the same window.
     """
     instrument, bar_type, bars, fg, tvl = _prepare_data(exchange, symbol, timeframe, days)
 
@@ -150,14 +155,25 @@ def run_sentiment_backtest(
     engine.add_instrument(instrument)
     _add_data(engine, bars, fg, tvl)
 
-    strategy = FearGreedContrarianStrategy(
-        FearGreedContrarianConfig(
-            instrument_id=instrument.id,
-            bar_type=bar_type,
-            fear_threshold=fear_threshold,
-            greed_threshold=greed_threshold,
+    if strategy_name == "regime":
+        strategy = RegimeContrarianStrategy(
+            RegimeContrarianConfig(
+                instrument_id=instrument.id,
+                bar_type=bar_type,
+                fear_threshold=fear_threshold,
+                greed_threshold=greed_threshold,
+                tvl_ma_window=tvl_ma_window,
+            )
         )
-    )
+    else:
+        strategy = FearGreedContrarianStrategy(
+            FearGreedContrarianConfig(
+                instrument_id=instrument.id,
+                bar_type=bar_type,
+                fear_threshold=fear_threshold,
+                greed_threshold=greed_threshold,
+            )
+        )
     engine.add_strategy(strategy)
     engine.run()
 

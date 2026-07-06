@@ -285,13 +285,22 @@ ever gets there.
   walkforward`) tunes thresholds in-sample and scores them out-of-sample; a Monte-Carlo permutation
   test (`significance.py`, `quiverquant significance`) shuffles Fear & Greed *values* across their
   timestamps to build a null return distribution (total-return statistic, since too few trades make
-  Sharpe unreliable — see §9). **First candidate judged and it does NOT qualify:** the Fear & Greed
-  contrarian beats buy-&-hold in only 1 of 4 out-of-sample folds (compounded OOS -27%), and its
-  full-window +46% is statistically indistinguishable from the shuffled-signal null (200-permutation
-  p = 0.40; null mean +44% ≈ the strategy's own return — the apparent gain is bull-market drift a
-  random signal captures equally). Per §6 this sends the candidate back for revision (add
-  TVL/dev-activity/regime signals). **Not yet done:** paper trading (§6 step 4) via nautilus_trader
-  live-data mode and/or Co-Invest Computer simulation mode, once a candidate clears these two gates.
+  Sharpe unreliable — see §9). The harness is strategy-pluggable and both gates take `--strategy`.
+  **Two candidates judged, neither qualifies:**
+  - *Candidate 1 — Fear & Greed contrarian:* beats buy-&-hold in only 1 of 4 out-of-sample folds
+    (compounded OOS -27%), and its full-window +46% is statistically indistinguishable from the
+    shuffled-signal null (200-perm p = 0.40; null mean +44% ≈ its own return — the apparent gain is
+    bull-market drift a random signal captures equally).
+  - *Candidate 2 — + DeFi-TVL momentum exit gate (`regime`):* revision hypothesis "don't sell into
+    greed while aggregate DeFi TVL is above its 30-day MA" (the base sits out rallies). It lifts the
+    in-sample full-window return to +171% and improves *both* gates — compounded OOS -20% (still 1/4
+    folds beat buy-&-hold) and permutation p tightens to 0.16 — so the regime lever adds real,
+    measurable value, but not enough to clear p≤0.05. Still fails §6.
+
+  Per §6 both go back for revision — next levers: graph-derived VC-conviction features
+  (`research/open-foundry-strategic-advantage.md`), dev-activity, or a broader asset universe.
+  **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest
+  Computer simulation mode, once a candidate clears these two gates.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
   thresholds (§6 step 5), independently verify Liquid's legal standing or finalize direct
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by

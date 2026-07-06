@@ -15,12 +15,14 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from quiverquant.backtest.data import FearGreedData  # noqa: E402
+from quiverquant.backtest.data import FearGreedData, TvlData  # noqa: E402
 from quiverquant.backtest.harness import (  # noqa: E402
     WindowResult,
     slice_bars,
     slice_fg,
+    slice_tvl,
 )
+from quiverquant.backtest.strategy import RegimeContrarianConfig  # noqa: E402
 from quiverquant.backtest.significance import (  # noqa: E402
     SignificanceReport,
     _shuffle_values,
@@ -60,6 +62,25 @@ def test_slice_fg_is_half_open():
 def test_slice_empty_when_out_of_range():
     bars = [_Bar(10), _Bar(20)]
     assert slice_bars(bars, 100, 200) == []
+
+
+def test_slice_tvl_is_half_open():
+    tvl = [
+        TvlData(ts_event=10, ts_init=10, total_usd=1.0, protocol_count=1),
+        TvlData(ts_event=20, ts_init=20, total_usd=2.0, protocol_count=1),
+        TvlData(ts_event=30, ts_init=30, total_usd=3.0, protocol_count=1),
+    ]
+    got = [d.total_usd for d in slice_tvl(tvl, 20, 30)]
+    assert got == [2.0]  # start inclusive, end exclusive
+
+
+# --- regime config --------------------------------------------------------
+
+def test_regime_config_inherits_and_adds_window():
+    cfg = RegimeContrarianConfig(instrument_id="BTCUSDT.BINANCE", bar_type="bt")
+    assert cfg.fear_threshold == 30  # inherited default
+    assert cfg.greed_threshold == 70
+    assert cfg.tvl_ma_window == 30   # new default
 
 
 # --- grid -----------------------------------------------------------------

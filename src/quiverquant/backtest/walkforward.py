@@ -31,6 +31,7 @@ from quiverquant.backtest.harness import (
     run_window,
     slice_bars,
     slice_fg,
+    slice_tvl,
     time_bounds,
 )
 
@@ -62,17 +63,20 @@ def _best_params(
     dataset: Dataset,
     train_bars: list,
     train_fg,
+    train_tvl,
     grid: list[tuple[int, int]],
     starting_balance: float,
+    strategy: str,
+    tvl_ma_window: int,
 ) -> tuple[int, int, float | None]:
     """Pick the (fear, greed) pair with the highest in-sample excess-over-buy&hold."""
     best: tuple[int, int, float | None] = (grid[0][0], grid[0][1], None)
     best_score = float("-inf")
     for fear, greed in grid:
         r = run_window(
-            dataset, train_bars, train_fg,
-            fear_threshold=fear, greed_threshold=greed,
-            starting_balance=starting_balance,
+            dataset, train_bars, train_fg, train_tvl,
+            strategy=strategy, fear_threshold=fear, greed_threshold=greed,
+            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
         )
         score = r.excess_pct
         if score is None:
@@ -88,6 +92,7 @@ class WalkForwardReport:
     n_splits: int
     train_frac: float
     folds: list[Fold]
+    strategy: str = "sentiment"
 
     @property
     def oos_returns(self) -> list[float]:
@@ -124,10 +129,13 @@ def walk_forward(
     train_frac: float = 0.4,
     fears=DEFAULT_FEARS,
     greeds=DEFAULT_GREEDS,
+    strategy: str = "sentiment",
+    tvl_ma_window: int = 30,
     starting_balance: float = 100_000.0,
     **load_kwargs,
 ) -> WalkForwardReport:
-    """Run anchored walk-forward validation of the Fear & Greed contrarian strategy."""
+    """Run anchored walk-forward validation. ``strategy`` = ``sentiment`` (Fear &
+    Greed only) or ``regime`` (adds the TVL-momentum exit gate)."""
     if not 0 < train_frac < 1:
         raise ValueError("train_frac must be in (0, 1)")
     if n_splits < 1:
@@ -154,18 +162,22 @@ def walk_forward(
 
         train_bars = slice_bars(dataset.bars, ts0, test_start)
         train_fg = slice_fg(dataset.fg, ts0, test_start)
-        # Fear & Greed history predates price bars, so include all signal points up
-        # to the test window (they warm up ``latest_fg`` before the first test bar).
+        train_tvl = slice_tvl(dataset.tvl, ts0, test_start)
+        # Signal history predates price bars, so include all points up to the test
+        # window (they warm up latest_fg / the TVL moving average before the first
+        # test bar).
         test_bars = slice_bars(dataset.bars, test_start, test_end)
         test_fg = slice_fg(dataset.fg, ts0, test_end)
+        test_tvl = slice_tvl(dataset.tvl, ts0, test_end)
 
         fear, greed, is_excess = _best_params(
-            dataset, train_bars, train_fg, grid, starting_balance
+            dataset, train_bars, train_fg, train_tvl, grid,
+            starting_balance, strategy, tvl_ma_window,
         )
         test_result = run_window(
-            dataset, test_bars, test_fg,
-            fear_threshold=fear, greed_threshold=greed,
-            starting_balance=starting_balance,
+            dataset, test_bars, test_fg, test_tvl,
+            strategy=strategy, fear_threshold=fear, greed_threshold=greed,
+            tvl_ma_window=tvl_ma_window, starting_balance=starting_balance,
         )
         folds.append(
             Fold(
@@ -178,11 +190,20 @@ def walk_forward(
             )
         )
 
-    return WalkForwardReport(n_splits=n_splits, train_frac=train_frac, folds=folds)
+    return WalkForwardReport(
+        n_splits=n_splits, train_frac=train_frac, folds=folds, strategy=strategy
+    )
+
+
+_STRATEGY_LABEL = {
+    "sentiment": "Fear & Greed contrarian",
+    "regime": "Fear & Greed contrarian + TVL-momentum regime gate",
+}
 
 
 def print_report(report: WalkForwardReport) -> None:
-    print("\n=== Walk-forward validation (Fear & Greed contrarian) ===")
+    label = _STRATEGY_LABEL.get(report.strategy, report.strategy)
+    print(f"\n=== Walk-forward validation ({label}) ===")
     print(f"  {'fold':>4} {'train_bars':>10} {'params':>12} {'test_bars':>9} "
           f"{'oos_ret%':>9} {'buyhold%':>9} {'excess%':>8}")
     for f in report.folds:
