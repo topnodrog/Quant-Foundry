@@ -11,6 +11,7 @@ from quiverquant.collectors.dev_activity import DevActivityCollector
 from quiverquant.collectors.fear_greed import FearGreedCollector
 from quiverquant.collectors.firecrawl_vc import FirecrawlVCCollector
 from quiverquant.collectors.onchain import OnchainCollector
+from quiverquant.collectors.perigon import PerigonNewsCollector
 from quiverquant.collectors.sec_edgar import SecEdgarCollector
 from quiverquant.collectors.smart_money import SmartMoneyCollector
 from quiverquant.collectors.whale_alert import WhaleAlertCollector
@@ -26,6 +27,7 @@ COLLECTORS = {
     "whale_alert": WhaleAlertCollector,
     "dune": SmartMoneyCollector,
     "firecrawl": FirecrawlVCCollector,
+    "perigon": PerigonNewsCollector,  # incremental crypto-news feed (1 call/run)
 }
 
 

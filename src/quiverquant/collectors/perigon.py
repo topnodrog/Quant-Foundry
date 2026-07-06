@@ -16,13 +16,21 @@ accumulate one going forward.
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Iterable
 
 import requests
 
+from quiverquant.collectors.base import Collector
 from quiverquant.config import get_source
+from quiverquant.storage import get_connection
 
 _BASE = "https://api.perigon.io/v1"
+
+# Perigon's own "Cryptocurrency" topic — verified as the dominant topic on a broad
+# crypto query (57/100), while noise ("World Cup", "Royal Family", "DevOps") carried
+# other topics. Filtering by topic is far cleaner than a loose keyword OR.
+CRYPTO_TOPIC = "Cryptocurrency"
 
 
 class PerigonError(RuntimeError):
@@ -87,6 +95,105 @@ def _pub_date(article: dict) -> str | None:
         if v:
             return str(v)
     return None
+
+
+def _net_sentiment(article: dict) -> float | None:
+    s = article.get("sentiment")
+    if isinstance(s, dict):
+        return round(float(s.get("positive", 0) or 0) - float(s.get("negative", 0) or 0), 4)
+    return None
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            return datetime.strptime(value[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+
+class PerigonNewsCollector(Collector):
+    """Incremental crypto-news feed — 'report future news as it comes in'.
+
+    Each run pulls crypto articles published since the newest one we've already
+    stored (falling back to a short lookback on first run), dedupes by
+    ``articleId``, and stores one ``crypto_news`` row per new article with its
+    per-article sentiment. Budget: **one API call per run** (up to 100 articles);
+    schedule it daily and it accumulates a real sentiment time series over time.
+    """
+
+    name = "perigon"
+
+    def __init__(self, size: int = 100, default_lookback_days: int = 2) -> None:
+        self.size = size
+        self.default_lookback_days = default_lookback_days
+
+    def fetch(self, tier: str) -> Iterable[dict[str, Any]]:
+        since = _latest_news_date() or (
+            datetime.now(timezone.utc) - timedelta(days=self.default_lookback_days)
+        )
+        frm = since.date().isoformat()
+        to = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
+        data = search_all(
+            frm=frm, to=to, size=self.size, sort_by="date", extra={"topic": CRYPTO_TOPIC}
+        )
+
+        seen = _stored_article_ids()
+        for a in _articles(data):
+            aid = a.get("articleId") or a.get("url")
+            if not aid or aid in seen:
+                continue
+            seen.add(aid)
+            ts = _parse_dt(_pub_date(a))
+            if ts is None:
+                continue
+            src = a.get("source")
+            src_name = src.get("name") or src.get("domain") if isinstance(src, dict) else src
+            yield {
+                "signal_type": "crypto_news",
+                "entity": src_name,
+                "ts": ts,
+                "payload": {
+                    "articleId": aid,
+                    "title": a.get("title"),
+                    "url": a.get("url"),
+                    "source": src_name,
+                    "pubDate": _pub_date(a),
+                    "net_sentiment": _net_sentiment(a),
+                    "sentiment": a.get("sentiment"),
+                    "topics": [t.get("name") for t in (a.get("topics") or []) if isinstance(t, dict)],
+                },
+            }
+
+
+def _latest_news_date() -> datetime | None:
+    con = get_connection()
+    try:
+        row = con.execute(
+            "SELECT max(ts) FROM raw_signals WHERE signal_type = 'crypto_news'"
+        ).fetchone()
+    finally:
+        con.close()
+    if row and row[0]:
+        ts = row[0]
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _stored_article_ids() -> set[str]:
+    con = get_connection()
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT json_extract_string(payload, '$.articleId') "
+            "FROM raw_signals WHERE signal_type = 'crypto_news'"
+        ).fetchall()
+    finally:
+        con.close()
+    return {r[0] for r in rows if r[0]}
 
 
 def probe(q: str = "bitcoin", test_from: str = "2022-01-01", test_to: str = "2022-02-01") -> dict:

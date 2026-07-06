@@ -19,9 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
-from quiverquant.collectors.perigon import search_all, _articles
+from quiverquant.collectors.perigon import CRYPTO_TOPIC, search_all, _articles
 
-_CRYPTO_Q = "bitcoin OR ethereum OR crypto OR cryptocurrency"
 _PERIGON_HISTORY_START = "2022-01-01"
 
 
@@ -71,7 +70,7 @@ def news_for_day(date: str) -> dict:
 
     y, m, d = (int(x) for x in date.split("-"))
     nxt = (_d(y, m, d) + timedelta(days=1)).isoformat()
-    return search_all(q=_CRYPTO_Q, frm=date, to=nxt, size=100, sort_by="date")
+    return search_all(frm=date, to=nxt, size=100, sort_by="relevance", extra={"topic": CRYPTO_TOPIC})
 
 
 def run_news_impact(n: int = 10) -> list[DayImpact]:
