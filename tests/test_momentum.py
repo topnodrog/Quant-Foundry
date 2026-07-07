@@ -85,7 +85,7 @@ def test_null_p_value_math():
     rep = MomentumReport(
         universe_size=50, lookback=90, hold=30, top_k=10, n_windows=40,
         start=None, end=None, momentum_return_pct=100.0,
-        market_return_pct=50.0, btc_return_pct=80.0,
+        market_return_pct=50.0, btc=(80.0, None, None),
         null_returns=[120.0, 90.0, 80.0, 60.0],  # 1 of 4 >= 100
     )
     assert rep.null_p_value == round((1 + 1) / (4 + 1), 4)  # 0.4

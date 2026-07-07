@@ -83,7 +83,7 @@ class MomentumReport:
     end: object
     momentum_return_pct: float | None
     market_return_pct: float | None
-    btc_return_pct: float | None
+    btc: tuple[float, object, object] | None  # (pct, first_day, last_day) of cached coverage
     null_returns: list[float]
 
     @property
@@ -145,12 +145,14 @@ def run_momentum(
         start=start_dt, end=end_dt,
         momentum_return_pct=momentum,
         market_return_pct=market_ret,
-        btc_return_pct=_btc_return(start_dt, end_dt),
+        btc=_btc_return(start_dt, end_dt),
         null_returns=null,
     )
 
 
-def _btc_return(start, end) -> float | None:
+def _btc_return(start, end) -> tuple[float, object, object] | None:
+    """(pct, first_day, last_day) actually covered — the cached BTC series may span
+    less than [start, end], and quoting it against the full window would mislead."""
     from quiverquant.backtest.ohlcv import read_ohlcv_df
 
     df = read_ohlcv_df("binance", "BTC/USDT", "1d")
@@ -159,7 +161,8 @@ def _btc_return(start, end) -> float | None:
     df = df[(df.index >= start) & (df.index <= end)]
     if len(df) < 2:
         return None
-    return round((float(df["close"].iloc[-1]) / float(df["close"].iloc[0]) - 1) * 100, 2)
+    pct = round((float(df["close"].iloc[-1]) / float(df["close"].iloc[0]) - 1) * 100, 2)
+    return pct, df.index[0], df.index[-1]
 
 
 def print_report(r: MomentumReport) -> None:
@@ -168,7 +171,11 @@ def print_report(r: MomentumReport) -> None:
     print(f"  universe          : {r.universe_size} alts   lookback {r.lookback}d · hold {r.hold}d · top {r.top_k}")
     print(f"\n  momentum book     : {_fmt(r.momentum_return_pct)}%")
     print(f"  equal-weight market: {_fmt(r.market_return_pct)}%")
-    print(f"  BTC buy-&-hold    : {_fmt(r.btc_return_pct)}%")
+    if r.btc is not None:
+        pct, first, last = r.btc
+        print(f"  BTC buy-&-hold    : {_fmt(pct)}%  (cached {first.date()} -> {last.date()} only)")
+    else:
+        print("  BTC buy-&-hold    : n/a (no cached BTC series)")
     if r.null_returns:
         print(f"\n  random top-{r.top_k} books (n={len(r.null_returns)}): mean {_fmt(r.null_mean_pct)}%")
         print(f"  momentum vs random-selection null : p = {r.null_p_value}")
