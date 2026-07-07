@@ -75,6 +75,14 @@ def main() -> None:
         # Path 1C: cross-sectional VC-conviction long book (survivorship-biased).
         raise SystemExit(_cross_section_cli(argv[1:]))
 
+    if argv and argv[0] == "collect-universe":
+        # Option 1: broad liquid-alt universe prices for cross-sectional momentum.
+        raise SystemExit(_collect_universe_cli(argv[1:]))
+
+    if argv and argv[0] == "momentum":
+        # Option 1: cross-sectional momentum backtest (rank alts, long top-K).
+        raise SystemExit(_momentum_cli(argv[1:]))
+
     if argv and argv[0] == "perigon-probe":
         # Spend ONE Perigon call to verify the key + measure history lookback.
         raise SystemExit(_perigon_probe_cli(argv[1:]))
@@ -342,6 +350,43 @@ def _collect_prices_cli(args: list[str]) -> int:
     print("coverage (token / days / first / last):")
     for gid, n, first, last in coverage_summary():
         print(f"  {gid:28} {n:5}  {first}  {last}")
+    return 0
+
+
+def _collect_universe_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.universe import collect_universe
+
+    parser = argparse.ArgumentParser(prog="quiverquant collect-universe")
+    parser.add_argument("--top", type=int, default=80, help="top-N coins by market cap to consider")
+    parser.add_argument("--min-days", type=int, default=120, help="drop coins with less price history than this")
+    ns = parser.parse_args(args)
+
+    s = collect_universe(top_n=ns.top, min_days=ns.min_days)
+    print(f"\nuniverse: {s['universe_size']} tradeable alts, {s['price_rows']} daily price rows")
+    if s["skipped"]:
+        print(f"skipped (not listed / too little history): {', '.join(s['skipped'])}")
+    return 0
+
+
+def _momentum_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.momentum import print_report, run_momentum
+
+    parser = argparse.ArgumentParser(prog="quiverquant momentum")
+    parser.add_argument("--lookback", type=int, default=90, help="trailing days for the momentum rank")
+    parser.add_argument("--hold", type=int, default=30, help="rebalance / holding period in days")
+    parser.add_argument("--top-k", type=int, default=10, help="number of top-ranked coins to hold")
+    parser.add_argument("--permutations", type=int, default=500, help="random-selection null draws")
+    parser.add_argument("--seed", type=int, default=42)
+    ns = parser.parse_args(args)
+
+    print_report(run_momentum(
+        lookback=ns.lookback, hold=ns.hold, top_k=ns.top_k,
+        n_permutations=ns.permutations, seed=ns.seed,
+    ))
     return 0
 
 

@@ -75,13 +75,17 @@ def fetch_ohlcv_history(
     since_ms: int | None = None,
     until_ms: int | None = None,
     per_call_limit: int = 1000,
+    exchange: "ccxt.Exchange | None" = None,
 ) -> list[list[float]]:
     """Fetch raw ``[ts_ms, o, h, l, c, v]`` rows from ``since_ms`` to ``until_ms``.
 
     Paginates past the venue's per-call cap by advancing ``since`` to just after
-    the last returned bar. ``enableRateLimit`` makes CCXT self-throttle.
+    the last returned bar. ``enableRateLimit`` makes CCXT self-throttle — but the
+    limiter's state lives on the instance, so bulk callers looping over many
+    symbols must pass a shared ``exchange`` or each call starts unthrottled.
     """
-    exchange = getattr(ccxt, exchange_id)({"enableRateLimit": True})
+    if exchange is None:
+        exchange = getattr(ccxt, exchange_id)({"enableRateLimit": True})
     if not exchange.has.get("fetchOHLCV"):
         raise RuntimeError(f"{exchange_id} does not support fetchOHLCV")
 

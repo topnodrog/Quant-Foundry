@@ -63,18 +63,22 @@ def fetch_daily_closes(base_symbol: str) -> tuple[str, list[tuple[object, float]
     anywhere we try.
     """
     for exchange_id, quotes in _EXCHANGE_QUOTES:
-        markets = _markets(exchange_id)
-        if markets is None:
+        ex = _exchange(exchange_id)
+        if ex is None:
             continue
         for quote in quotes:
             symbol = f"{base_symbol}/{quote}"
-            if symbol not in markets:
+            if symbol not in ex.markets:
                 continue
             try:
                 rows = fetch_ohlcv_history(
-                    exchange_id, symbol, "1d", since_ms=_SINCE_MS, per_call_limit=1000
+                    exchange_id, symbol, "1d", since_ms=_SINCE_MS, per_call_limit=1000,
+                    exchange=ex,
                 )
-            except Exception:  # noqa: BLE001 - venue hiccup, try the next combo
+            except Exception as e:  # noqa: BLE001 - venue hiccup, try the next combo
+                # Surface it: a silent skip here made venue rate-bans look like
+                # "token not listed anywhere" during the first universe collect.
+                print(f"  [prices] {symbol} on {exchange_id}: {type(e).__name__}, trying next venue")
                 continue
             if rows:
                 closes = [
@@ -85,18 +89,21 @@ def fetch_daily_closes(base_symbol: str) -> tuple[str, list[tuple[object, float]
     return "", []
 
 
-_MARKETS_CACHE: dict[str, dict | None] = {}
+# One long-lived instance per exchange: keeps load_markets to a single call AND
+# keeps CCXT's per-instance rate limiter warm across a whole bulk collect —
+# fresh instances per symbol start unthrottled and get the IP rate-banned.
+_EXCHANGE_CACHE: dict[str, "ccxt.Exchange | None"] = {}
 
 
-def _markets(exchange_id: str) -> dict | None:
-    """Cached ``load_markets`` per exchange (so we check symbol existence once)."""
-    if exchange_id not in _MARKETS_CACHE:
+def _exchange(exchange_id: str) -> "ccxt.Exchange | None":
+    if exchange_id not in _EXCHANGE_CACHE:
         try:
             ex = getattr(ccxt, exchange_id)({"enableRateLimit": True})
-            _MARKETS_CACHE[exchange_id] = ex.load_markets()
+            ex.load_markets()
+            _EXCHANGE_CACHE[exchange_id] = ex
         except Exception:  # noqa: BLE001 - exchange unreachable, skip it
-            _MARKETS_CACHE[exchange_id] = None
-    return _MARKETS_CACHE[exchange_id]
+            _EXCHANGE_CACHE[exchange_id] = None
+    return _EXCHANGE_CACHE[exchange_id]
 
 
 def cache_prices(gecko_id: str, closes: list[tuple[object, float]]) -> int:
