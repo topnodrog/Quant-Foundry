@@ -94,6 +94,8 @@ uv run quiverquant news-backfill                  # Perigon: backfill monthly se
 uv run quiverquant news-impact --top 10           # Perigon: did news move BTC? biggest move days vs that day's news
 uv run quiverquant walkforward --strategy news    # Phase 4: news-sentiment candidate through the gates
 uv run quiverquant wayback-vc --extract           # Path 2: point-in-time VC portfolios from archive.org
+uv run quiverquant collect-universe --top 80      # Option 1: top-N liquid-alt universe prices via CCXT (--resume after a rate-ban)
+uv run quiverquant momentum                       # Option 1: cross-sectional momentum vs random-selection null (candidate #6)
 ```
 
 ## Collector status (2026-07-03)
@@ -178,9 +180,9 @@ uv run quiverquant wayback-vc --extract           # Path 2: point-in-time VC por
     fold → degenerates to ~buy-&-hold (compounded OOS +11%, 1/4 beat B&H); stricter
     consensus churns. Significance **p = 0.55** — 109/200 shuffled-input versions beat
     it, i.e. below the *median* of noise. Combining the weak signals produced no edge.
-  - **Final scoreboard — 5 candidates, none qualify** (all fail significance p≤0.05):
+  - **Final scoreboard — 6 candidates, none qualify** (all fail significance p≤0.05):
     F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=**0.09** (closest) · news 3/4
-    p=0.15 · ensemble 1/4 p=0.55. **No single free signal, nor their consensus, shows a
+    p=0.15 · ensemble 1/4 p=0.55 · cross-sectional momentum p=0.19 (candidate 6 below). **No single free signal, nor their consensus, shows a
     statistically-significant BTC daily-timing edge on 2022-2026** — the framework cut
     down every in-sample winner (news +152%, dev +175%, ensemble +181%) out-of-sample
     or against the shuffled-signal null, rather than shipping an overfit strategy. A
@@ -203,6 +205,21 @@ uv run quiverquant wayback-vc --extract           # Path 2: point-in-time VC por
     **BTC +195%**; conviction did **not** beat random VC picks (**p = 0.48**) — and
     that's *with* survivorship bias helping. Caveats: daily-rebalance volatility drag,
     growing composition, a few homonym mismatches. The honest fix is path 2.
-  - Next: **path 2** — an archive.org scraper for point-in-time VC portfolios (defeats
-    survivorship bias), then re-run the cross-sectional book on the unbiased dataset.
+  - **Candidate 6 — cross-sectional momentum on a liquid-alt universe
+    (`collect-universe` + `momentum`) — right target, unproven ranking.** The pivot
+    off BTC timing: rank the top-80-mcap liquid alts (48 with ≥120d CEX history;
+    stablecoins/wrapped/gold excluded) by trailing 90d return every 30d, hold the
+    top 10 equal-weight. The null is random selection from the *same* universe, so
+    the p-value isolates the ranking and is fair under the shared survivorship
+    bias. 2017-11→2026-07 (106 rebalances): momentum book **+5,212%** vs random-book
+    null mean +3,591% / equal-weight market +3,517% — directionally consistent with
+    the academic momentum factor (Liu-Tsyvinski-Wu), but **p = 0.186: not
+    distinguishable from random selection. Still fails §6.** Absolute numbers are
+    survivorship-inflated upper bounds regardless.
+  - Next (see PLAN.md §9 next-steps + `research/survivorship-free-universe.md`):
+    build the **survivorship-free dataset** — point-in-time universe membership from
+    CoinMarketCap's weekly `/historical/` snapshots + dead-coin price history from
+    the `data.binance.vision` public archive (both free) — then re-run candidate 6
+    with walk-forward-chosen parameters and fee haircuts. Meanwhile the forward
+    series keep accumulating (daily Perigon news feed, repeat VC-portfolio scrapes).
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

@@ -1,6 +1,8 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
-**Status (updated 2026-07-06): Phases 0-3 done, Phase 4 in progress. 9 collectors are live (§2,
+**Status (updated 2026-07-07): Phases 0-3 done, Phase 4 in progress — 6 candidates through the
+gates, none qualify; pivoted from BTC timing to cross-sectional selection (candidate 6), next
+lever is a survivorship-free dataset (§9 next steps). 9 collectors are live (§2,
 incl. the Firecrawl VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the
 running stack and `raw_signals` rows are ingested into the ontology, graph edges included (latest
 live graph: 570 vertices / 327 edges). Phase 3 built the nautilus_trader backtest pipeline and a
@@ -320,8 +322,9 @@ ever gets there.
     to ~buy-&-hold (OOS +11%, 1/4 beat B&H); significance p = 0.55 (below the median of the
     shuffle-all-four-inputs null). Combining the weak signals produced no edge.
 
-  **Gate scoreboard — 5 candidates, NONE qualify (all fail significance p≤0.05):** F&G 1/4 folds
-  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 (closest) · news 3/4 p=0.15 · ensemble 1/4 p=0.55.
+  **Gate scoreboard — 6 candidates, NONE qualify (all fail significance p≤0.05):** F&G 1/4 folds
+  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 (closest) · news 3/4 p=0.15 · ensemble 1/4 p=0.55 ·
+  cross-sectional momentum p=0.19 (vs random-selection null; see candidate 6 below).
   The gates are doing their job: every candidate that looked good in-sample (news +152%, dev +175%,
   ensemble +181%) was cut down out-of-sample or by the shuffled-signal null. **No single free signal,
   nor their consensus, shows a durable statistically-significant BTC daily-timing edge on 2022-2026.**
@@ -349,11 +352,44 @@ ever gets there.
   comparison is apples-to-apples and robust to it), growing composition, homonym mismatches
   (Gensyn→AI, Rain→RAIN, Sky). Educational upper bound, not a qualified strategy.
 
-  Per §6 the candidates and the VC book all go back for revision. Next: **path 2** — an archive.org
-  scraper for point-in-time VC portfolios (defeats survivorship bias), then re-run the cross-sectional
-  book on the unbiased dataset; also the point-in-time feature store (lever #1, an `ingested_at`
-  column on `raw_signals`). **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data
-  mode and/or Co-Invest Computer simulation mode, once a candidate clears these gates.
+  **Candidate 6 — cross-sectional momentum on a liquid-alt universe (`collect-universe` +
+  `momentum`, 2026-07-07):** the first candidate after the "change the target" pivot — stop timing
+  BTC, rank the top-80-mcap liquid alts (48 with CEX history ≥120d, stablecoins/wrapped/gold
+  excluded) by trailing 90d return every 30d and hold the top 10 equal-weight. The null is random
+  selection from the *same* universe, so the p-value isolates the ranking itself and is fair under
+  the shared survivorship bias. Result 2017-11→2026-07 (106 rebalances): momentum book +5,212% vs
+  random-book null mean +3,591% and equal-weight market +3,517% — directionally right (consistent
+  with Liu-Tsyvinski-Wu, where momentum is a priced factor concentrated in large coins) but
+  **p = 0.186, not distinguishable from random selection. Still fails §6.** The absolute numbers are
+  upper bounds anyway: today's-liquid-set universe (survivorship), and coins dropping out mid-window
+  are excluded from that window's book. Verdict: right target, unproven ranking — the next lever is
+  data quality (point-in-time membership), not more parameter tuning.
+
+  **Next steps (planned 2026-07-07, in order — see `research/survivorship-free-universe.md`):**
+  1. **Survivorship-free dataset (both halves free):** (a) point-in-time universe membership from
+     CoinMarketCap's weekly `/historical/YYYYMMDD/` snapshot pages (back to 2013, keyless, dead
+     coins included) → a `universe_snapshot` table = `universe(t)`; (b) price history for
+     dead/delisted coins from the `data.binance.vision` public kline archive (append-only, keeps
+     delisted pairs, free) → fills `token_price_history` where CCXT can't see anymore. Rule: a held
+     coin whose prints stop mid-window realizes its last archived close, with a −100% stress
+     variant.
+  2. **Re-run candidate #6 on the unbiased dataset** with walk-forward folds choosing
+     lookback/hold/top-K (reuse the Phase-4 harness pattern; folds must straddle the 2022 bear or
+     the p-value means nothing). This is the honest test of the literature's strongest free-data
+     factor. Add fee/slippage haircut per rebalance (2×0.1% taker on turnover) before believing
+     any margin.
+  3. **Weekly cadence variants** — the academic momentum factor is weekly; 90d/30d was a guess.
+     Grid through the harness, never hand-picked.
+  4. **Keep accumulating the forward series** that need calendar time, not code: daily Perigon
+     news feed (scheduled), repeated Firecrawl VC-portfolio scrapes (builds the temporal
+     backing history lever #2 needs), and the point-in-time feature store (lever #1,
+     `ingested_at` on `raw_signals`).
+  5. **Path 2 (Wayback VC portfolios) parked** — feasibility proven, coverage thin (4/33
+     snapshots); revisit only if an old-markup extractor becomes cheap, since candidate-#6-style
+     price momentum doesn't depend on it.
+
+  **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest
+  Computer simulation mode, once a candidate clears these gates.
 - **Phase 5:** only after explicit, separately-discussed go-ahead — define live-promotion
   thresholds (§6 step 5), independently verify Liquid's legal standing or finalize direct
   Hyperliquid integration, and decide on real capital allocation. Not started, not implied by
