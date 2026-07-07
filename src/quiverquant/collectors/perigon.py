@@ -76,7 +76,11 @@ def search_all(
         raise PerigonError("401 Unauthorized — check PERIGON_API_KEY is correct")
     if resp.status_code == 429:
         raise PerigonError("429 Too Many Requests — monthly call budget likely exhausted")
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        # Don't raise_for_status(): its message embeds the full request URL,
+        # apiKey query param included, and the scheduled task logs stderr to
+        # data/news_cron.log — keep the key out of that file.
+        raise PerigonError(f"HTTP {resp.status_code} from Perigon /all: {resp.text[:200]}")
     return resp.json()
 
 
