@@ -61,9 +61,19 @@ def parse_kline_zip(content: bytes) -> list[list[float]]:
         fields = line.split(",")
         if fields[0].strip().lower() == "open_time":  # some months ship a header row
             continue
-        ts_ms, o, h, l, c, v = fields[:6]
-        rows.append([float(ts_ms), float(o), float(h), float(l), float(c), float(v)])
+        ts, o, h, l, c, v = fields[:6]
+        rows.append([_ts_to_ms(ts), float(o), float(h), float(l), float(c), float(v)])
     return rows
+
+
+def _ts_to_ms(raw: str) -> float:
+    """Normalize a kline open_time to epoch MILLISECONDS. Binance switched the
+    archive's unit from ms to microseconds in ~2025 files; a real ms timestamp for
+    2010-2035 is ~1e12, microseconds ~1e15, so anything above 1e14 is µs → /1000."""
+    ts = float(raw)
+    if ts > 1e14:
+        ts /= 1000.0
+    return ts
 
 
 def _iter_months(start_year: int, start_month: int, end_year: int, end_month: int):
@@ -73,6 +83,32 @@ def _iter_months(start_year: int, start_month: int, end_year: int, end_month: in
         m += 1
         if m > 12:
             y, m = y + 1, 1
+
+
+def archive_closes(
+    symbol: str,
+    start_year: int = 2017,
+    start_month: int = 1,
+    end_year: int | None = None,
+    end_month: int | None = None,
+) -> list[tuple[object, float]]:
+    """Every month of daily closes for ``symbol`` from the archive, as
+    ``[(day, close), ...]`` — the same shape ``token_prices.fetch_daily_closes``
+    returns, so it's a drop-in fallback when a coin is no longer live on any
+    CCXT-reachable venue. Pure fetch, no DB write. Months with no archive data
+    (pair not listed yet, or delisted) are skipped silently."""
+    from datetime import datetime, timezone
+
+    today = date.today()
+    end_year = end_year or today.year
+    end_month = end_month or today.month
+
+    closes: list[tuple[object, float]] = []
+    for y, m in _iter_months(start_year, start_month, end_year, end_month):
+        for row in fetch_month(symbol, y, m):
+            day = datetime.fromtimestamp(row[0] / 1000, tz=timezone.utc).date()
+            closes.append((day, row[4]))
+    return closes
 
 
 def backfill_symbol(

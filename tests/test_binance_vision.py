@@ -46,6 +46,21 @@ def test_tolerates_a_leading_header_row():
     assert rows[0][1] == 37.387
 
 
+def test_normalizes_microsecond_timestamps_to_ms():
+    # Binance's ~2025+ archive files ship open_time in MICROSECONDS (16 digits);
+    # older files use milliseconds (13 digits). Both must land as ms so downstream
+    # `fromtimestamp(ts/1000)` doesn't overflow (OSError [Errno 22]).
+    micros = (
+        "1704067200000000,42283.58,44184.10,42180.77,44179.55,27174.29,"
+        "1704153599999999,1169995682.02,1114623,14331.73,617352094.56,0\n"
+    )
+    rows = parse_kline_zip(_zip_bytes(micros))
+    assert rows[0][0] == 1704067200000.0  # µs -> ms, i.e. 2024-01-01
+    # sanity: it must be convertible to a real date without overflow
+    import datetime as _dt
+    assert _dt.datetime.fromtimestamp(rows[0][0] / 1000, tz=_dt.timezone.utc).year == 2024
+
+
 def test_pair_strips_the_ccxt_slash():
     assert _pair("BTCST/USDT") == "BTCSTUSDT"
     assert _pair("BTC/USDT") == "BTCUSDT"

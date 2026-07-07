@@ -83,6 +83,18 @@ def main() -> None:
         # Option 1: cross-sectional momentum backtest (rank alts, long top-K).
         raise SystemExit(_momentum_cli(argv[1:]))
 
+    if argv and argv[0] == "resolve-universe":
+        # §9 step 2: resolve CMC snapshot members -> tickers (survivorship-free).
+        raise SystemExit(_resolve_universe_cli(argv[1:]))
+
+    if argv and argv[0] == "collect-pit-prices":
+        # §9 step 2: price resolved members (Binance-archive-first for dead coins).
+        raise SystemExit(_collect_pit_prices_cli(argv[1:]))
+
+    if argv and argv[0] == "pit-momentum":
+        # §9 step 2: survivorship-free cross-sectional momentum (candidate #6 re-run).
+        raise SystemExit(_pit_momentum_cli(argv[1:]))
+
     if argv and argv[0] == "perigon-probe":
         # Spend ONE Perigon call to verify the key + measure history lookback.
         raise SystemExit(_perigon_probe_cli(argv[1:]))
@@ -411,6 +423,68 @@ def _momentum_cli(args: list[str]) -> int:
     print_report(run_momentum(
         lookback=ns.lookback, hold=ns.hold, top_k=ns.top_k,
         n_permutations=ns.permutations, seed=ns.seed,
+    ))
+    return 0
+
+
+def _resolve_universe_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.pit_universe import (
+        print_resolution_summary, refresh_coingecko_list, resolve_symbols,
+    )
+
+    parser = argparse.ArgumentParser(prog="quiverquant resolve-universe")
+    parser.add_argument("--refresh", action="store_true", help="refetch CoinGecko's full /coins/list first")
+    parser.add_argument("--top", type=int, default=80, help="resolve members ever ranked <= this")
+    ns = parser.parse_args(args)
+
+    if ns.refresh:
+        n = refresh_coingecko_list()
+        print(f"cached {n} CoinGecko coins (incl. delisted)")
+    print_resolution_summary(resolve_symbols(top_n=ns.top))
+    return 0
+
+
+def _collect_pit_prices_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.pit_universe import (
+        collect_prices, coverage_report, print_price_summary,
+    )
+
+    parser = argparse.ArgumentParser(prog="quiverquant collect-pit-prices")
+    parser.add_argument("--top", type=int, default=80, help="price members ever ranked <= this")
+    parser.add_argument("--limit", type=int, help="cap how many members to price this run")
+    parser.add_argument("--fresh", action="store_true", help="re-price members already priced")
+    ns = parser.parse_args(args)
+
+    print_price_summary(collect_prices(top_n=ns.top, limit=ns.limit, resume=not ns.fresh))
+    cov = coverage_report(top_n=ns.top)
+    if cov.get("dates"):
+        print(f"\n  priceable coverage: median {cov['median_priced_per_snapshot']} of top-{ns.top} "
+              f"per snapshot, avg {cov['avg_coverage_pct']}%")
+    return 0
+
+
+def _pit_momentum_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.pit_momentum import print_report, run_pit_momentum
+
+    parser = argparse.ArgumentParser(prog="quiverquant pit-momentum")
+    parser.add_argument("--lookback", type=int, default=90, help="trailing days for the momentum rank")
+    parser.add_argument("--hold", type=int, default=30, help="rebalance / holding period in days")
+    parser.add_argument("--top-k", type=int, default=10, help="number of top-ranked coins to hold")
+    parser.add_argument("--top-n", type=int, default=80, help="universe = coins ranked <= this at each date")
+    parser.add_argument("--fee-bps", type=float, default=10.0, help="one-way taker fee in bps (10 = 0.1%%)")
+    parser.add_argument("--permutations", type=int, default=500, help="random-selection null draws")
+    parser.add_argument("--seed", type=int, default=42)
+    ns = parser.parse_args(args)
+
+    print_report(run_pit_momentum(
+        lookback=ns.lookback, hold=ns.hold, top_k=ns.top_k, top_n=ns.top_n,
+        fee_bps=ns.fee_bps, n_permutations=ns.permutations, seed=ns.seed,
     ))
     return 0
 
