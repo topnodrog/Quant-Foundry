@@ -32,6 +32,16 @@ COLLECTORS = {
 
 
 def main() -> None:
+    # Windows stdout defaults to cp1252 when redirected to a file, which crashes
+    # on non-ASCII coin names/symbols in progress prints. Force UTF-8 (replace on
+    # the rare un-encodable glyph) so a long collection run can't die on a print.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:  # noqa: BLE001 - best-effort; never block the CLI on this
+                pass
+
     argv = sys.argv[1:]
     if argv and argv[0] == "migrate-ontology":
         # Phase 2: migrate raw_signals into the Open Foundry crypto ontology.
