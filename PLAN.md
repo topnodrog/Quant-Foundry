@@ -1,8 +1,11 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
 **Status (updated 2026-07-07): Phases 0-3 done, Phase 4 in progress — 6 candidates through the
-gates, none qualify; pivoted from BTC timing to cross-sectional selection (candidate 6), next
-lever is a survivorship-free dataset (§9 next steps). 9 collectors are live (§2,
+gates, none qualify; pivoted from BTC timing to cross-sectional selection (candidate 6). Built and
+ran the survivorship-free dataset's collection half (§9 step 1): 417 distinct top-80 coins recovered
+across 104 monthly CoinMarketCap snapshots (2018-2026) vs. 48 in today's-liquid-only universe;
+Binance's public kline archive verified backfilling delisted-pair price history. Re-running
+candidate 6 on this unbiased data is the next step (§9 step 2, recipe written). 9 collectors are live (§2,
 incl. the Firecrawl VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the
 running stack and `raw_signals` rows are ingested into the ontology, graph edges included (latest
 live graph: 570 vertices / 327 edges). Phase 3 built the nautilus_trader backtest pipeline and a
@@ -365,28 +368,53 @@ ever gets there.
   are excluded from that window's book. Verdict: right target, unproven ranking — the next lever is
   data quality (point-in-time membership), not more parameter tuning.
 
-  **Next steps (planned 2026-07-07, in order — see `research/survivorship-free-universe.md`):**
-  1. **Survivorship-free dataset (both halves free):** (a) point-in-time universe membership from
-     CoinMarketCap's weekly `/historical/YYYYMMDD/` snapshot pages (back to 2013, keyless, dead
-     coins included) → a `universe_snapshot` table = `universe(t)`; (b) price history for
-     dead/delisted coins from the `data.binance.vision` public kline archive (append-only, keeps
-     delisted pairs, free) → fills `token_price_history` where CCXT can't see anymore. Rule: a held
-     coin whose prints stop mid-window realizes its last archived close, with a −100% stress
-     variant.
-  2. **Re-run candidate #6 on the unbiased dataset** with walk-forward folds choosing
-     lookback/hold/top-K (reuse the Phase-4 harness pattern; folds must straddle the 2022 bear or
-     the p-value means nothing). This is the honest test of the literature's strongest free-data
-     factor. Add fee/slippage haircut per rebalance (2×0.1% taker on turnover) before believing
-     any margin.
-  3. **Weekly cadence variants** — the academic momentum factor is weekly; 90d/30d was a guess.
+  **Step 1 (survivorship-free dataset) DONE — both halves built, tested, and run for real
+  (2026-07-07, commit 183db4a):**
+  - **`backfill cmc-snapshots`** — coinmarketcap.com/historical/YYYYMMDD/ is server-rendered HTML,
+    no login/JS needed (verified against real pages spanning 2015-2026). Top 20 rows carry full
+    data; ranks 21-200 render as a locked "sign up to see more" teaser that still discloses rank
+    position, slug, and name — enough for membership. One request per date, no rate limit hit.
+    **Ran it: 104 monthly snapshots 2018-01→2026-06 into a new `universe_snapshot` table. 417
+    distinct coins were EVER ranked top-80 across that window — vs. 48 in candidate #6's
+    today's-liquid-only universe.** Confirmed real recoveries: BitConnect (rank 20, the 2018
+    Ponzi scheme, one snapshot only), HEX, Terra/TerraUSD (gone by 2022-07), FTX Token (last top-80
+    2024-01, tracking FTX's real decline), Waves (dropped 2022-09, its real de-peg crisis).
+  - **`backfill binance-archive --symbol X/USDT`** — data.binance.vision is Binance's own public
+    kline archive; append-only, so a pair's history survives delisting (the exact CCXT gap).
+    Writes into the *existing* `ohlcv` table via `cache_ohlcv(exchange="binance", ...)` — no new
+    schema, transparently merges with anything CCXT already cached. **Verified live: BTCST/USDT
+    (delisted 2021 for wash-trading) backfilled 682 real daily bars, 2021-01-13→2022-11-28, that
+    today's CCXT-only pipeline can no longer see at all.**
+  - Full detail: `research/survivorship-free-universe.md`. Tests: `test_cmc_snapshots.py` (5),
+    `test_binance_vision.py` (3), both pure-parse fixtures, no network. Suite 87/87.
+
+  **Step 2 (re-run candidate #6 on the unbiased dataset) — NOT yet done; concrete recipe:**
+  1. For each of the 417 `universe_snapshot` members without a known symbol (the teaser rows),
+     resolve name→symbol via CoinGecko's full `/coins/list` (keyless, includes delisted coins —
+     do NOT use `/coins/markets`, which only lists currently-ranked coins and would silently
+     re-introduce survivorship bias at the resolution step). Flag unresolved names — most will
+     be genuinely dead enough that no exchange still lists a ticker for them at all.
+  2. Price-source priority per resolved symbol: (a) CCXT live, if still traded anywhere; (b)
+     `binance-archive`, if it was ever on Binance; (c) accept the gap and exclude that coin from
+     windows where no price exists. A coin whose prints stop mid-window realizes its last archived
+     close (or a −100% stress variant) rather than silently vanishing from the return calc.
+  3. Rebuild `read_price_df` (or a new reader) keyed off `universe_snapshot(t)` membership instead
+     of a single static universe — the momentum book at each rebalance should only be allowed to
+     pick from that DATE's actual top-N, not today's.
+  4. Re-run walk-forward choosing lookback/hold/top-K (reuse the Phase-4 harness pattern; folds
+     must straddle the 2022 bear or the p-value means nothing), with a fee/slippage haircut
+     (2×0.1% taker on turnover) before believing any margin.
+  5. **Weekly cadence variants** — the academic momentum factor is weekly; 90d/30d was a guess.
      Grid through the harness, never hand-picked.
-  4. **Keep accumulating the forward series** that need calendar time, not code: daily Perigon
-     news feed (scheduled), repeated Firecrawl VC-portfolio scrapes (builds the temporal
-     backing history lever #2 needs), and the point-in-time feature store (lever #1,
-     `ingested_at` on `raw_signals`).
-  5. **Path 2 (Wayback VC portfolios) parked** — feasibility proven, coverage thin (4/33
-     snapshots); revisit only if an old-markup extractor becomes cheap, since candidate-#6-style
-     price momentum doesn't depend on it.
+
+  **Ongoing regardless of step 2's timing:**
+  - **Keep accumulating the forward series** that need calendar time, not code: daily Perigon
+    news feed (scheduled), repeated Firecrawl VC-portfolio scrapes (builds the temporal backing
+    history lever #2 needs), and the point-in-time feature store (lever #1, `ingested_at` on
+    `raw_signals`).
+  - **Path 2 (Wayback VC portfolios) parked** — feasibility proven, coverage thin (4/33
+    snapshots); revisit only if an old-markup extractor becomes cheap, since candidate-#6-style
+    price momentum doesn't depend on it.
 
   **Not yet done:** paper trading (§6 step 4) via nautilus_trader live-data mode and/or Co-Invest
   Computer simulation mode, once a candidate clears these gates.

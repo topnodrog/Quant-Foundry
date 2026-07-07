@@ -83,6 +83,8 @@ uv run quiverquant backtest --strategy regime    # Phase 4: + DeFi-TVL momentum 
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
+uv run quiverquant backfill cmc-snapshots --start 2018-01-01   # Phase 4 next: point-in-time top-200 universe (CoinMarketCap)
+uv run quiverquant backfill binance-archive --symbol BTCST/USDT  # Phase 4 next: delisted-pair daily klines (data.binance.vision)
 uv run quiverquant walkforward --strategy dev --splits 4      # Phase 4: anchored walk-forward (sentiment|regime|dev)
 uv run quiverquant significance --strategy dev --permutations 200  # Phase 4: shuffled-signal permutation test
 uv run quiverquant graph-features                # Lever #2: VC-conviction / co-investment from FundBacksProtocol edges
@@ -216,10 +218,18 @@ uv run quiverquant momentum                       # Option 1: cross-sectional mo
     the academic momentum factor (Liu-Tsyvinski-Wu), but **p = 0.186: not
     distinguishable from random selection. Still fails §6.** Absolute numbers are
     survivorship-inflated upper bounds regardless.
-  - Next (see PLAN.md §9 next-steps + `research/survivorship-free-universe.md`):
-    build the **survivorship-free dataset** — point-in-time universe membership from
-    CoinMarketCap's weekly `/historical/` snapshots + dead-coin price history from
-    the `data.binance.vision` public archive (both free) — then re-run candidate 6
-    with walk-forward-chosen parameters and fee haircuts. Meanwhile the forward
+  - **Survivorship-free dataset — collection DONE (`backfill cmc-snapshots` +
+    `backfill binance-archive`).** Point-in-time universe membership from CoinMarketCap's
+    `/historical/YYYYMMDD/` pages (server-rendered HTML, no login/JS needed): a monthly
+    backfill 2018-01→2026-06 (104 snapshots, 0 failures) found **417 distinct coins ever
+    ranked top-80** — vs. 48 in candidate 6's today's-liquid-only universe. Real recoveries:
+    BitConnect (rank 20, gone within weeks of Jan 2018), HEX, Terra/TerraUSD (gone by
+    2022-07), FTX Token (gone by 2024-01), Waves (dropped 2022-09). Dead-coin price history
+    from Binance's public `data.binance.vision` kline archive (append-only, survives
+    delisting) — verified live on BTCST/USDT (delisted 2021): 682 real daily bars CCXT can
+    no longer see, written straight into the existing `ohlcv` table. Next: resolve the
+    ~200+ name-only members to tickers, price-source them (CCXT live → binance-archive →
+    accept the gap), and re-run candidate 6's walk-forward against time-varying membership
+    instead of a static list (PLAN.md §9 step 2 has the exact recipe). Meanwhile the forward
     series keep accumulating (daily Perigon news feed, repeat VC-portfolio scrapes).
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

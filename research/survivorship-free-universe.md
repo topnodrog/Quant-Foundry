@@ -1,5 +1,29 @@
 # Survivorship-free cross-sectional data — research notes (2026-07-07)
 
+**UPDATE (later same day): both collectors built, tested, and run for real.**
+`backfill/cmc_snapshots.py` (`quiverquant backfill cmc-snapshots`) confirmed CMC's
+`/historical/YYYYMMDD/` pages are server-rendered HTML (checked 2015 and 2022 samples byte-for-byte
+— no `__NEXT_DATA__` JSON trick needed, no browser UA needed, no login gate on the data itself).
+Ran a monthly backfill 2018-01→2026-06: **104 snapshots, 0 failures, 417 distinct coins ever
+ranked top-80** — vs. 48 in candidate #6's current CoinGecko-today universe. Confirmed real
+recoveries: BitConnect (rank 20, 2018-01-01 only — the Ponzi scheme collapsed within weeks),
+HEX, Terra + TerraUSD (last seen 2022-07, matching the real collapse), FTX Token (last seen
+2024-01, matching FTX's wind-down), Waves (dropped 2022-09, its real de-peg crisis).
+
+`backfill/binance_vision.py` (`quiverquant backfill binance-archive --symbol X/USDT`) confirmed
+data.binance.vision serves monthly kline zips for delisted pairs. Verified against BTCST/USDT
+(delisted from Binance in 2021 for wash-trading): backfilled 682 real daily bars, 2021-01-13
+through 2022-11-28 — a full year+ of price history that CCXT's live `fetch_ohlcv` cannot see at
+all today. Rows go straight into the existing `ohlcv` table (`exchange="binance"`), so no schema
+changes and no risk of colliding with live-CCXT-cached data for the same pair.
+
+**Not yet done:** joining these into a time-varying universe for the momentum backtest (resolving
+the ~200+ members that only have a name/slug, not a ticker; picking a price source per coin per
+era; re-running walk-forward against `universe_snapshot(t)` instead of a static list). See PLAN.md
+§9 step 2 for the exact recipe.
+
+---
+
 The cross-sectional experiments so far (VC-conviction book, momentum candidate #6) all share
 one caveat big enough to invalidate a positive result: the universe is **today's** liquid set.
 Coins that died (LUNA, FTT, SafeMoon, ~58% of everything ever listed) are absent, and industry
