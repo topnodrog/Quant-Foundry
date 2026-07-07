@@ -361,9 +361,10 @@ def _collect_universe_cli(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="quiverquant collect-universe")
     parser.add_argument("--top", type=int, default=80, help="top-N coins by market cap to consider")
     parser.add_argument("--min-days", type=int, default=120, help="drop coins with less price history than this")
+    parser.add_argument("--resume", action="store_true", help="keep existing members, only fetch missing coins")
     ns = parser.parse_args(args)
 
-    s = collect_universe(top_n=ns.top, min_days=ns.min_days)
+    s = collect_universe(top_n=ns.top, min_days=ns.min_days, resume=ns.resume)
     print(f"\nuniverse: {s['universe_size']} tradeable alts, {s['price_rows']} daily price rows")
     if s["skipped"]:
         print(f"skipped (not listed / too little history): {', '.join(s['skipped'])}")

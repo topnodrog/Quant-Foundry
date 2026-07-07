@@ -61,23 +61,39 @@ def read_universe_ids() -> list[str]:
     return [r[0] for r in rows]
 
 
-def collect_universe(top_n: int = 80, min_days: int = 120) -> dict:
+def collect_universe(top_n: int = 80, min_days: int = 120, resume: bool = False) -> dict:
     """Fetch the top-``top_n`` liquid coins (minus excludes), pull daily prices via
     CCXT, and record membership. Returns a summary. Soft-fails coins not on a CEX.
 
     ``min_days`` drops just-listed coins (e.g. 5 days of history) that could never
     survive a lookback anyway and only pollute the universe/price tables.
+
+    ``resume`` keeps already-collected members and only fetches the missing coins —
+    venues rate-ban mid-run on a cold IP, so the practical path to a full universe
+    is one initial run plus resumed retries, not one giant pull.
     """
     liquid = fetch_liquid_universe(top_n=top_n)
     con = _connect()
     try:
-        con.execute("DELETE FROM universe_token")
+        if resume:
+            have = {r[0] for r in con.execute("SELECT gecko_id FROM universe_token").fetchall()}
+        else:
+            con.execute("DELETE FROM universe_token")
+            have = set()
 
         kept, priced, skipped = 0, 0, []
         for c in liquid:
             symbol = str(c.get("symbol", "")).upper()
             gid = c.get("id")
             if not symbol or not gid or symbol in _EXCLUDE:
+                continue
+            if gid in have:
+                n = con.execute(
+                    "SELECT count(*) FROM token_price_history WHERE gecko_id = ?", [gid]
+                ).fetchone()[0]
+                kept += 1
+                priced += n
+                print(f"[universe] {symbol:10} {n:5} days  (cached)")
                 continue
             source, closes = fetch_daily_closes(symbol)
             if len(closes) < min_days:
