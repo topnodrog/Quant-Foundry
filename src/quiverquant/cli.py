@@ -127,6 +127,16 @@ def _backfill_cli(args: list[str]) -> int:
     p_dev.add_argument("--repos", nargs="*", help="explicit owner/repo list (default watchlist)")
     p_dev.add_argument("--since", help="only weeks on/after this UTC date, YYYY-MM-DD")
 
+    p_cmc = sub.add_parser("cmc-snapshots", help="point-in-time top-200 universe membership (CoinMarketCap)")
+    p_cmc.add_argument("--start", default="2018-01-01", help="first snapshot date, YYYY-MM-DD")
+    p_cmc.add_argument("--end", help="last snapshot date, YYYY-MM-DD (default today)")
+    p_cmc.add_argument("--step-days", type=int, default=30, help="days between snapshots")
+
+    p_bv = sub.add_parser("binance-archive", help="delisted-pair daily klines (data.binance.vision)")
+    p_bv.add_argument("--symbol", required=True, help="CCXT-style pair, e.g. BTCST/USDT")
+    p_bv.add_argument("--start-year", type=int, default=2017)
+    p_bv.add_argument("--start-month", type=int, default=1)
+
     ns = parser.parse_args(args)
 
     if ns.source == "fear-greed":
@@ -160,6 +170,20 @@ def _backfill_cli(args: list[str]) -> int:
         )
         total = backfill_dev_activity(repos=ns.repos, since=since)
         print(f"dev-activity: inserted {total} new repo-weeks")
+        return 0
+
+    if ns.source == "cmc-snapshots":
+        from quiverquant.backfill.cmc_snapshots import backfill_snapshots, print_backfill_summary
+
+        summary = backfill_snapshots(start=ns.start, end=ns.end, step_days=ns.step_days)
+        print_backfill_summary(summary)
+        return 0
+
+    if ns.source == "binance-archive":
+        from quiverquant.backfill.binance_vision import backfill_symbol, print_backfill_result
+
+        added = backfill_symbol(ns.symbol, start_year=ns.start_year, start_month=ns.start_month)
+        print_backfill_result(ns.symbol, added)
         return 0
 
     return 1
