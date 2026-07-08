@@ -186,16 +186,6 @@ uv run quiverquant momentum                       # Option 1: cross-sectional mo
     fold → degenerates to ~buy-&-hold (compounded OOS +11%, 1/4 beat B&H); stricter
     consensus churns. Significance **p = 0.55** — 109/200 shuffled-input versions beat
     it, i.e. below the *median* of noise. Combining the weak signals produced no edge.
-  - **Final scoreboard — 6 candidates, none qualify** (all fail significance p≤0.05):
-    F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15 ·
-    ensemble 1/4 p=0.55 · cross-sectional momentum (survivorship-free walk-forward)
-    3/4 folds beat the random null, 1/4 significant, compounded OOS −51% — the strongest
-    pattern yet, see the re-run below. **No single free signal, nor their consensus, shows a
-    statistically-significant BTC daily-timing edge on 2022-2026** — the framework cut
-    down every in-sample winner (news +152%, dev +175%, ensemble +181%) out-of-sample
-    or against the shuffled-signal null, rather than shipping an overfit strategy. A
-    forward crypto-news feed (`quiverquant perigon`, Windows-scheduled daily) accumulates
-    a finer series for future re-tests.
   - **Graph-derived VC-conviction features (`uv run quiverquant graph-features`)** —
     lever #2 from the Open Foundry research, built as `features/graph.py`: computes
     VC conviction (projects backed by ≥2 distinct funds) and fund co-investment
@@ -252,4 +242,15 @@ uv run quiverquant momentum                       # Option 1: cross-sectional mo
     long-short (long top-K / short bottom-K, market-neutral) or a regime-gated long book.
     Meanwhile the forward series keep accumulating (daily Perigon news feed, repeat
     VC-portfolio scrapes).
+  - **Final scoreboard — 6 candidates, none qualify** (all fail significance p≤0.05):
+    F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15 ·
+    ensemble 1/4 p=0.55 · cross-sectional momentum (survivorship-free walk-forward)
+    3/4 folds beat the random null, 1/4 significant, compounded OOS −51% — the strongest
+    pattern of any candidate. **No single free signal, nor their consensus, shows a
+    statistically-significant edge that survives an honest test** — the framework cut
+    down every in-sample winner (news +152%, dev +175%, ensemble +181%, momentum
+    +5,212%→−44% once survivorship bias was removed) out-of-sample or against a
+    shuffled/random null, rather than shipping an overfit or fabricated-by-bias strategy.
+    A forward crypto-news feed (`quiverquant perigon`, Windows-scheduled daily) and the
+    survivorship-free universe both keep accumulating for future re-tests.
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required
