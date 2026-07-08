@@ -105,6 +105,10 @@ def main() -> None:
         # §9 step 2: survivorship-free cross-sectional momentum (candidate #6 re-run).
         raise SystemExit(_pit_momentum_cli(argv[1:]))
 
+    if argv and argv[0] == "pit-walkforward":
+        # §9 step 2: walk-forward validation of the pit momentum book (§6 step 2).
+        raise SystemExit(_pit_walkforward_cli(argv[1:]))
+
     if argv and argv[0] == "perigon-probe":
         # Spend ONE Perigon call to verify the key + measure history lookback.
         raise SystemExit(_perigon_probe_cli(argv[1:]))
@@ -495,6 +499,27 @@ def _pit_momentum_cli(args: list[str]) -> int:
     print_report(run_pit_momentum(
         lookback=ns.lookback, hold=ns.hold, top_k=ns.top_k, top_n=ns.top_n,
         fee_bps=ns.fee_bps, n_permutations=ns.permutations, seed=ns.seed,
+    ))
+    return 0
+
+
+def _pit_walkforward_cli(args: list[str]) -> int:
+    import argparse
+
+    from quiverquant.features.pit_momentum import pit_walkforward, print_walkforward
+
+    parser = argparse.ArgumentParser(prog="quiverquant pit-walkforward")
+    parser.add_argument("--folds", type=int, default=4)
+    parser.add_argument("--train-frac", type=float, default=0.4)
+    parser.add_argument("--fee-bps", type=float, default=10.0)
+    parser.add_argument("--top-n", type=int, default=80)
+    parser.add_argument("--permutations", type=int, default=200, help="OOS null draws per fold")
+    parser.add_argument("--seed", type=int, default=42)
+    ns = parser.parse_args(args)
+
+    print_walkforward(pit_walkforward(
+        n_folds=ns.folds, train_frac=ns.train_frac, fee_bps=ns.fee_bps,
+        top_n=ns.top_n, oos_permutations=ns.permutations, seed=ns.seed,
     ))
     return 0
 

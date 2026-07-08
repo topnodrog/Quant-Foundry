@@ -83,8 +83,12 @@ uv run quiverquant backtest --strategy regime    # Phase 4: + DeFi-TVL momentum 
 uv run quiverquant backfill fear-greed           # Phase 3: full Fear & Greed history (2018+)
 uv run quiverquant backfill defillama-tvl --top 25     # Phase 3: daily TVL history per top protocol
 uv run quiverquant backfill dev-activity         # Phase 3: weekly commit history per repo
-uv run quiverquant backfill cmc-snapshots --start 2018-01-01   # Phase 4 next: point-in-time top-200 universe (CoinMarketCap)
-uv run quiverquant backfill binance-archive --symbol BTCST/USDT  # Phase 4 next: delisted-pair daily klines (data.binance.vision)
+uv run quiverquant backfill cmc-snapshots --start 2018-01-01   # §9 step 1: point-in-time top-200 universe (CoinMarketCap)
+uv run quiverquant backfill binance-archive --symbol BTCST/USDT  # §9 step 1: delisted-pair daily klines (data.binance.vision)
+uv run quiverquant resolve-universe --refresh     # §9 step 2: snapshot members -> tickers (CoinGecko full list)
+uv run quiverquant collect-pit-prices             # §9 step 2: price members (archive-first for dead coins)
+uv run quiverquant pit-momentum                   # §9 step 2: survivorship-free momentum vs random null (fees incl.)
+uv run quiverquant pit-walkforward                # §9 step 2: anchored walk-forward over the pit universe
 uv run quiverquant walkforward --strategy dev --splits 4      # Phase 4: anchored walk-forward (sentiment|regime|dev)
 uv run quiverquant significance --strategy dev --permutations 200  # Phase 4: shuffled-signal permutation test
 uv run quiverquant graph-features                # Lever #2: VC-conviction / co-investment from FundBacksProtocol edges
@@ -183,8 +187,10 @@ uv run quiverquant momentum                       # Option 1: cross-sectional mo
     consensus churns. Significance **p = 0.55** — 109/200 shuffled-input versions beat
     it, i.e. below the *median* of noise. Combining the weak signals produced no edge.
   - **Final scoreboard — 6 candidates, none qualify** (all fail significance p≤0.05):
-    F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=**0.09** (closest) · news 3/4
-    p=0.15 · ensemble 1/4 p=0.55 · cross-sectional momentum p=0.19 (candidate 6 below). **No single free signal, nor their consensus, shows a
+    F&G 1/4 folds p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15 ·
+    ensemble 1/4 p=0.55 · cross-sectional momentum (survivorship-free walk-forward)
+    3/4 folds beat the random null, 1/4 significant, compounded OOS −51% — the strongest
+    pattern yet, see the re-run below. **No single free signal, nor their consensus, shows a
     statistically-significant BTC daily-timing edge on 2022-2026** — the framework cut
     down every in-sample winner (news +152%, dev +175%, ensemble +181%) out-of-sample
     or against the shuffled-signal null, rather than shipping an overfit strategy. A
@@ -227,9 +233,23 @@ uv run quiverquant momentum                       # Option 1: cross-sectional mo
     2022-07), FTX Token (gone by 2024-01), Waves (dropped 2022-09). Dead-coin price history
     from Binance's public `data.binance.vision` kline archive (append-only, survives
     delisting) — verified live on BTCST/USDT (delisted 2021): 682 real daily bars CCXT can
-    no longer see, written straight into the existing `ohlcv` table. Next: resolve the
-    ~200+ name-only members to tickers, price-source them (CCXT live → binance-archive →
-    accept the gap), and re-run candidate 6's walk-forward against time-varying membership
-    instead of a static list (PLAN.md §9 step 2 has the exact recipe). Meanwhile the forward
-    series keep accumulating (daily Perigon news feed, repeat VC-portfolio scrapes).
+    no longer see, written straight into the existing `ohlcv` table.
+  - **Candidate 6 re-run on the unbiased dataset (`resolve-universe` → `collect-pit-prices`
+    → `pit-momentum` / `pit-walkforward`) — THE decisive result: +5,212% was entirely
+    survivorship bias.** 301/417 members resolved to tickers (CMC-slug==CoinGecko-id first,
+    then name match against the full `/coins/list` — never `/coins/markets`, which would
+    reintroduce the bias); 247 priced (survivors CCXT-live, dead coins Binance-archive
+    bounded to their membership window — dodges the LUNA→Terra-2.0 reused-ticker trap);
+    median 72 of each snapshot's top-80 tradeable (84% coverage). Same config as candidate
+    6, now with point-in-time membership + 10bps turnover fees: **−44% (p=0.14)**, and random
+    top-10 books from the same universe average −65% — the alt tide is deeply negative once
+    dead coins are held through their collapses. A cadence sweep found the literature's
+    weekly momentum (30d/7d: +45.9%, in-sample p=0.003), so it went to walk-forward: the
+    grid chose 30/7 in every fold and **3/4 OOS folds beat the random null** (one at
+    p=0.005, +119.8% vs −16.2%) — the strongest pattern of any candidate — but compounded
+    OOS is **−51%**: real ranking information, drowned by holding long-only alts through
+    bear/chop regimes. Still fails §6. Next candidate (new hypothesis, not a re-tune):
+    long-short (long top-K / short bottom-K, market-neutral) or a regime-gated long book.
+    Meanwhile the forward series keep accumulating (daily Perigon news feed, repeat
+    VC-portfolio scrapes).
 - **Phase 5 (not started, gated):** live capital — explicit separate go-ahead required

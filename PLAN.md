@@ -1,11 +1,12 @@
 # Master Plan — Crypto Alt-Data & Strategy Engine
 
-**Status (updated 2026-07-07): Phases 0-3 done, Phase 4 in progress — 6 candidates through the
-gates, none qualify; pivoted from BTC timing to cross-sectional selection (candidate 6). Built and
-ran the survivorship-free dataset's collection half (§9 step 1): 417 distinct top-80 coins recovered
-across 104 monthly CoinMarketCap snapshots (2018-2026) vs. 48 in today's-liquid-only universe;
-Binance's public kline archive verified backfilling delisted-pair price history. Re-running
-candidate 6 on this unbiased data is the next step (§9 step 2, recipe written). 9 collectors are live (§2,
+**Status (updated 2026-07-08): Phases 0-3 done, Phase 4 in progress — 6 candidates through the
+gates, none qualify. The survivorship-free re-run of candidate 6 (§9 steps 1-2, DONE) is the
+project's most decisive result: the same momentum config that returned +5,212% on today's-liquid
+universe returns −44% on the point-in-time universe (417 coins incl. dead ones vs 48) — the entire
+edge was survivorship bias. Walk-forward on the unbiased data found real ranking information at the
+weekly cadence (3/4 folds beat the random null; one at p=0.005) but a long-only alt book still
+compounds to −51% OOS. Next candidate: long-short / regime-gated momentum (§9). 9 collectors are live (§2,
 incl. the Firecrawl VC-portfolio scraper §3); the Open Foundry crypto Domain Pack (§4) loads on the
 running stack and `raw_signals` rows are ingested into the ontology, graph edges included (latest
 live graph: 570 vertices / 327 edges). Phase 3 built the nautilus_trader backtest pipeline and a
@@ -326,8 +327,10 @@ ever gets there.
     shuffle-all-four-inputs null). Combining the weak signals produced no edge.
 
   **Gate scoreboard — 6 candidates, NONE qualify (all fail significance p≤0.05):** F&G 1/4 folds
-  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 (closest) · news 3/4 p=0.15 · ensemble 1/4 p=0.55 ·
-  cross-sectional momentum p=0.19 (vs random-selection null; see candidate 6 below).
+  p=0.40 · regime 1/4 p=0.16 · dev 2/4 p=0.09 · news 3/4 p=0.15 · ensemble 1/4 p=0.55 ·
+  cross-sectional momentum, survivorship-free walk-forward: 3/4 folds beat the random null,
+  1/4 significant, compounded OOS −51% (the strongest *pattern* yet — see candidate 6 below —
+  but a long-only alt book loses to the negative point-in-time tide).
   The gates are doing their job: every candidate that looked good in-sample (news +152%, dev +175%,
   ensemble +181%) was cut down out-of-sample or by the shuffled-signal null. **No single free signal,
   nor their consensus, shows a durable statistically-significant BTC daily-timing edge on 2022-2026.**
@@ -388,24 +391,38 @@ ever gets there.
   - Full detail: `research/survivorship-free-universe.md`. Tests: `test_cmc_snapshots.py` (5),
     `test_binance_vision.py` (3), both pure-parse fixtures, no network. Suite 87/87.
 
-  **Step 2 (re-run candidate #6 on the unbiased dataset) — NOT yet done; concrete recipe:**
-  1. For each of the 417 `universe_snapshot` members without a known symbol (the teaser rows),
-     resolve name→symbol via CoinGecko's full `/coins/list` (keyless, includes delisted coins —
-     do NOT use `/coins/markets`, which only lists currently-ranked coins and would silently
-     re-introduce survivorship bias at the resolution step). Flag unresolved names — most will
-     be genuinely dead enough that no exchange still lists a ticker for them at all.
-  2. Price-source priority per resolved symbol: (a) CCXT live, if still traded anywhere; (b)
-     `binance-archive`, if it was ever on Binance; (c) accept the gap and exclude that coin from
-     windows where no price exists. A coin whose prints stop mid-window realizes its last archived
-     close (or a −100% stress variant) rather than silently vanishing from the return calc.
-  3. Rebuild `read_price_df` (or a new reader) keyed off `universe_snapshot(t)` membership instead
-     of a single static universe — the momentum book at each rebalance should only be allowed to
-     pick from that DATE's actual top-N, not today's.
-  4. Re-run walk-forward choosing lookback/hold/top-K (reuse the Phase-4 harness pattern; folds
-     must straddle the 2022 bear or the p-value means nothing), with a fee/slippage haircut
-     (2×0.1% taker on turnover) before believing any margin.
-  5. **Weekly cadence variants** — the academic momentum factor is weekly; 90d/30d was a guess.
-     Grid through the harness, never hand-picked.
+  **Step 2 (re-run candidate #6 on the unbiased dataset) — DONE 2026-07-08 (commits e948232 +
+  follow-ups). The headline: candidate #6's +5,212% was ENTIRELY survivorship bias.**
+  Pipeline (`features/pit_universe.py` + `features/pit_momentum.py`; CLI `resolve-universe`,
+  `collect-pit-prices`, `pit-momentum`, `pit-walkforward`):
+  - *Resolution:* 301/417 members (72%) resolved to tickers. Two keys: CMC-slug == CoinGecko-id
+    (the stronger one — recovers FTX Token→FTT, IMX, BAT, CRV where display names drifted), then
+    normalized-name against CoinGecko's full `/coins/list` (includes delisted coins). Ambiguous
+    collisions flagged.
+  - *Pricing:* 247/301 priced (112 CCXT-live for survivors, 101 Binance-archive for dead coins
+    bounded to their membership window — dodges the LUNA→Terra-2.0 reused-ticker trap; 54 gaps,
+    genuinely unpriceable). **Median 72 of each snapshot's top-80 is tradeable, 84% avg coverage.**
+    Found + fixed en route: Binance switched archive timestamps to microseconds in ~2025 files.
+  - *Result, same config as candidate #6 (90d/30d/top-10, now with 10bps turnover fees):*
+    **+5,212% (biased) → −44% (survivorship-free), p = 0.14.** Random top-10 books from the same
+    point-in-time universe average −65%: the alt tide is deeply negative once dead coins are
+    priced through their collapses. This one number quantifies the whole survivorship problem —
+    the industry's "200-400% inflation" claim was a big understatement here.
+  - *Cadence sweep (6 configs):* monthly holds all negative/insignificant, but the WEEKLY cadence
+    the literature predicts (30d lookback / 7d hold) showed +45.9% vs null −78.5%, in-sample
+    p = 0.003 (and 60/14: p = 0.010). Cherry-picked from a grid, so it went to walk-forward:
+  - *Walk-forward (4 anchored folds, config chosen in-sample per fold, OOS scored vs fresh
+    random null):* **still does NOT qualify.** The grid consistently chose 30/7 in every fold
+    (the in-sample signal is stable) and 3/4 OOS folds beat the null mean — one decisively
+    (2023-11→2025-03: +119.8% vs −16.2%, p = 0.005) — but compounded OOS is **−51%**: the
+    ranking carries real information in bull regimes and drowns in bear/chop (fold 4:
+    −66.6%, WORSE than null). Matches the literature's regime-dependence caveat exactly.
+  - *Verdict:* honest fail, but the most informative one yet. The ranking isn't noise — it's
+    long-only in an asset class whose point-in-time tide is strongly negative. The obvious NEXT
+    hypothesis (new candidate, not a re-tune): make the book **regime-aware or long-short** —
+    long top-K/short bottom-K momentum (market-neutral, harvests the ranking without the tide),
+    or gate the long book to cash when a trend/regime filter is off. Both are new candidates for
+    the gates, not free passes.
 
   **Ongoing regardless of step 2's timing:**
   - **Keep accumulating the forward series** that need calendar time, not code: daily Perigon

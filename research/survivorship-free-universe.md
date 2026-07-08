@@ -17,10 +17,17 @@ through 2022-11-28 — a full year+ of price history that CCXT's live `fetch_ohl
 all today. Rows go straight into the existing `ohlcv` table (`exchange="binance"`), so no schema
 changes and no risk of colliding with live-CCXT-cached data for the same pair.
 
-**Not yet done:** joining these into a time-varying universe for the momentum backtest (resolving
-the ~200+ members that only have a name/slug, not a ticker; picking a price source per coin per
-era; re-running walk-forward against `universe_snapshot(t)` instead of a static list). See PLAN.md
-§9 step 2 for the exact recipe.
+**UPDATE 2026-07-08 — step 2 done, the bias quantified.** The join is built
+(`features/pit_universe.py`, `features/pit_momentum.py`): 301/417 members resolved (72%), 247
+priced (median 72 of each snapshot's top-80 tradeable, 84% coverage). The same momentum config
+that returned **+5,212%** on the today's-liquid universe returns **−44%** point-in-time (p=0.14)
+— and random top-10 books from the same universe average **−65%**. So the industry's
+"survivorship inflates backtests 200-400%" claim was a huge understatement for cross-sectional
+alt books: the biased number wasn't inflated, it was *fabricated* by the universe choice.
+Walk-forward found the weekly cadence (30d/7d) carries real ranking information — 3/4 OOS folds
+beat the random null, one at p=0.005 — but long-only compounds to −51% OOS because the
+point-in-time alt tide is that negative. Full detail in PLAN.md §9; next hypothesis is
+long-short / regime-gated to harvest the ranking without the tide.
 
 ---
 
